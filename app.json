@@ -1,25 +1,50 @@
 {
   "expo": {
-    "name": "stormsnap",
+    "name": "StormSnap",
     "slug": "stormsnap",
+    "scheme": "stormsnap",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "be.ictstorm.stormsnap"
     },
     "android": {
+      "package": "be.ictstorm.stormsnap",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F6D3E1",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": ["CAMERA", "POST_NOTIFICATIONS"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "name": "StormSnap",
+      "backgroundColor": "#F6D3E1",
+      "themeColor": "#F6D3E1",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "StormSnap uses your camera to take your hourly snap.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#E2668F"
+        }
+      ]
+    ]
   }
 }
