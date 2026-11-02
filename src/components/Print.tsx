@@ -59,26 +59,37 @@ export function Print({
   ) : null;
 
   if (style === 'film') {
+    // A real strip: the back photo and the selfie are two frames, one after the other.
     const w = width - 36;
-    const h = Math.round((w * 5) / 4);
-    const holes = Array.from({ length: Math.floor((h + 30) / 22) });
-    const sw = Math.round(w * 0.32);
+    const h1 = Math.round((w * 5) / 4);
+    const h2 = Math.round((w * 3) / 4);
+    const gap = 10;
+    const total = h1 + gap + h2 + 28;
+    const holes = Array.from({ length: Math.floor(total / 22) });
+    const frameNo = (n: number) => (
+      <Text style={[s.frameNo, small && { fontSize: 11 }]}>
+        {pad(hour)}u{'  '}▸ {n}A
+      </Text>
+    );
     return (
       <View style={[s.film, { width }]}>
         <View style={s.holes}>{holes.map((_, i) => <View key={i} style={s.hole} />)}</View>
-        <View style={{ width: w }}>
-          <Pressable onPress={onPress} accessibilityLabel="Swap photos" style={{ width: w, height: h, overflow: 'hidden' }}>
-            {image('big', { width: w, height: h })}
+        <Pressable onPress={onPress} accessibilityLabel="Swap photos" style={{ width: w }}>
+          <View style={{ width: w, height: h1, overflow: 'hidden', borderRadius: 2 }}>
+            {image('big', { width: w, height: h1 })}
             {stamp}
             {badge}
-          </Pressable>
-          <View style={[s.filmSelfie, { width: sw + 6 }]} pointerEvents="none">
-            {image('small', { width: sw, height: Math.round((sw * 4) / 3) })}
           </View>
-          <Text style={[s.filmCaption, { width: w }, small && { fontSize: 12 }]} numberOfLines={1}>
-            {caption || `StormSnap  ·  ${pad(hour)}u`}
-          </Text>
-        </View>
+          {frameNo(1)}
+          <View style={{ width: w, height: h2, overflow: 'hidden', borderRadius: 2 }}>{image('small', { width: w, height: h2 })}</View>
+          {caption ? (
+            <Text style={[s.filmCaption, { width: w }, small && { fontSize: 12 }]} numberOfLines={2}>
+              {caption}
+            </Text>
+          ) : (
+            frameNo(2)
+          )}
+        </Pressable>
         <View style={s.holes}>{holes.map((_, i) => <View key={i} style={s.hole} />)}</View>
       </View>
     );
@@ -182,8 +193,8 @@ const s = StyleSheet.create({
   film: { flexDirection: 'row', backgroundColor: '#17140F', paddingVertical: 10, borderRadius: 6, justifyContent: 'space-between' },
   holes: { width: 18, alignItems: 'center', gap: 10, paddingTop: 2, overflow: 'hidden' },
   hole: { width: 9, height: 12, borderRadius: 2.5, backgroundColor: '#E8E2D4' },
-  filmSelfie: { position: 'absolute', top: 10, left: 10, padding: 3, backgroundColor: '#17140F', borderRadius: 3 },
-  filmCaption: { fontFamily: FONTS.stamp, fontSize: 18, color: '#E9B44C', paddingTop: 8, letterSpacing: 1 },
+  frameNo: { fontFamily: FONTS.stamp, fontSize: 15, color: '#E9B44C', paddingVertical: 3, letterSpacing: 1 },
+  filmCaption: { fontFamily: FONTS.stamp, fontSize: 18, lineHeight: 20, color: '#E9B44C', paddingTop: 6, letterSpacing: 1 },
   sticker: { padding: 12, borderRadius: 30, shadowOpacity: 0.16, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
   dot: {
     position: 'absolute',

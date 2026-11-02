@@ -201,7 +201,7 @@ const st = StyleSheet.create({
   previewBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   styles: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   styleCard: { width: '47.5%', borderRadius: S.lgInc, borderWidth: 2.5, padding: 12, paddingBottom: 14 },
-  styleArt: { height: 196, alignItems: 'center', justifyContent: 'center', paddingTop: 10 },
+  styleArt: { height: 250, alignItems: 'center', justifyContent: 'center', paddingTop: 10 },
   styleText: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   notif: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: S.lgInc },
   notifIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
