@@ -16,6 +16,7 @@ export type Snap = {
   onTime: boolean;
   keptBy: string[];
   reactions: string[];
+  style?: string | null;
 };
 
 const familyRead = Role.team(TEAM_ID);
@@ -117,6 +118,7 @@ export async function postSnap(
   frontUri: string,
   caption: string,
   onTime: boolean,
+  style: string = 'tape',
 ): Promise<Snap> {
   const perms = [Permission.read(familyRead), Permission.delete(Role.user(me.id))];
   const stamp = Date.now();
@@ -140,6 +142,7 @@ export async function postSnap(
       onTime,
       keptBy: [],
       reactions: [],
+      style,
     },
     permissions: [
       Permission.read(familyRead),
@@ -219,4 +222,20 @@ export function photo(fileId: string) {
     cache.set(fileId, p);
   }
   return p;
+}
+
+// ---------- per-person settings (saved on the account, so every device gets them) ----------
+export type Prefs = { onboarded?: boolean; style?: string; appearance?: string; accent?: string };
+export async function getPrefs(): Promise<Prefs> {
+  try {
+    return (await account.getPrefs()) as Prefs;
+  } catch {
+    return {};
+  }
+}
+export async function savePrefs(p: Prefs) {
+  try {
+    const cur = await getPrefs();
+    await account.updatePrefs({ prefs: { ...cur, ...p } });
+  } catch {}
 }

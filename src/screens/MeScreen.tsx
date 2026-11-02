@@ -6,6 +6,7 @@ import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ACCENTS, ACCENT_ORDER, S, T, useStyles, useTheme, type AccentKey, type Appearance, type Theme } from '../theme';
 import { changePin, niceError, type Me, type Snap } from '../api';
 import { remindersSupported } from '../notify';
+import { PHOTO_STYLES, type PhotoStyle } from '../components/Print';
 
 function HourStepper({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min: number; max: number }) {
   const c = useTheme();
@@ -33,6 +34,8 @@ export function MeScreen({
   onReminders,
   onWindow,
   onLogout,
+  photoStyle,
+  onPhotoStyle,
 }: {
   me: Me;
   code: string;
@@ -48,6 +51,8 @@ export function MeScreen({
   onReminders: (on: boolean) => void;
   onWindow: (start: number, end: number) => void;
   onLogout: () => void;
+  photoStyle: PhotoStyle;
+  onPhotoStyle: (p: PhotoStyle) => void;
 }) {
   const c = useTheme();
   const s = useStyles(makeStyles);
@@ -138,6 +143,20 @@ export function MeScreen({
             );
           })}
         </View>
+      </Card>
+
+      <SectionLabel>My photo style</SectionLabel>
+      <Card tone="low">
+        {PHOTO_STYLES.map((p) => (
+          <ListItem
+            key={p.key}
+            icon={({ tape: 'paperclip', film: 'filmstrip', sticker: 'sticker-circle-outline', clean: 'image-outline' } as const)[p.key]}
+            title={p.name}
+            supporting={p.hint}
+            onPress={() => onPhotoStyle(p.key)}
+            trailing={<Icon name={p.key === photoStyle ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={p.key === photoStyle ? c.primary : c.outline} />}
+          />
+        ))}
       </Card>
 
       <SectionLabel>Reminders</SectionLabel>

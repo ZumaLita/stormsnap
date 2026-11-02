@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Avatar, Icon, IconButton, Press, SnapImage } from './ui';
+import { Print, isPhotoStyle } from './Print';
 import { FONTS, S, T, useTheme } from '../theme';
 import { REACTIONS } from '../config';
 import type { Snap } from '../api';
 
-const pad = (n: number) => String(n).padStart(2, '0');
-/** Film-camera date imprint, e.g. 02 11 '26  10:05 */
-const stampText = (iso: string) => {
-  const d = new Date(iso);
-  return `${pad(d.getDate())} ${pad(d.getMonth() + 1)} '${String(d.getFullYear()).slice(2)}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
 const ago = (iso: string) => {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
   if (mins < 1) return 'just now';
@@ -18,13 +13,6 @@ const ago = (iso: string) => {
   const h = Math.round(mins / 60);
   return h < 24 ? `${h} h ago` : new Date(iso).toLocaleDateString(undefined, { weekday: 'long' });
 };
-// Stable, gentle tilt per snap so the feed feels like prints on a table.
-const tiltFor = (id: string) => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 33 + id.charCodeAt(i)) >>> 0;
-  return ((h % 5) - 2) * 0.55;
-};
-
 export function SnapCard({
   snap,
   meId,
@@ -43,10 +31,6 @@ export function SnapCard({
   const [swapped, setSwapped] = useState(false);
   const [picker, setPicker] = useState(false);
   const printW = Math.min(width, 560) - 40;
-  const photoW = printW - 20;
-  const photoH = Math.round((photoW * 5) / 4);
-  const selfieW = Math.round(photoW * 0.34);
-  const tilt = tiltFor(snap.$id);
   const kept = snap.keptBy.includes(meId);
   const mine = snap.reactions.find((r) => r.startsWith(meId + ':'))?.split(':')[1];
   const liked = mine === '❤️';
@@ -76,37 +60,17 @@ export function SnapCard({
         {snap.authorId === meId && <IconButton icon="trash-can-outline" label="Delete snap" onPress={confirmDelete} size={40} />}
       </View>
 
-      <View
-        style={[
-          styles.print,
-          {
-            width: printW,
-            backgroundColor: c.print,
-            shadowColor: c.printShadow,
-            transform: [{ rotate: `${tilt}deg` }],
-          },
-        ]}
-      >
-        <Pressable onPress={() => setSwapped((x) => !x)} accessibilityLabel="Swap photos" style={{ width: photoW, height: photoH, overflow: 'hidden', borderRadius: 3 }}>
-          <SnapImage fileId={swapped ? snap.frontId : snap.backId} style={{ width: photoW, height: photoH }} />
-          <Text style={[styles.stamp, { color: c.stamp, textShadowColor: c.stamp }]}>{stampText(snap.$createdAt)}</Text>
-          {!snap.onTime && (
-            <View style={[styles.extra, { backgroundColor: c.tertiaryContainer }]}>
-              <Text style={[T.labelSmall, { color: c.onTertiaryContainer }]}>Extra snap</Text>
-            </View>
-          )}
-        </Pressable>
-
-        {/* The selfie is a smaller print taped onto the big one. */}
-        <View style={[styles.selfie, { width: selfieW + 10, backgroundColor: c.print, shadowColor: c.printShadow }]} pointerEvents="none">
-          <View style={[styles.tape, { backgroundColor: c.tape }]} />
-          <SnapImage fileId={swapped ? snap.backId : snap.frontId} style={{ width: selfieW, height: Math.round((selfieW * 4) / 3), borderRadius: 2 }} />
-        </View>
-
-        <Text style={[T.hand, styles.caption, { color: snap.caption ? '#2B3045' : '#A4A9B8' }]} numberOfLines={2}>
-          {snap.caption || `${pad(snap.hour)}u`}
-        </Text>
-      </View>
+      <Print
+        style={isPhotoStyle(snap.style) ? snap.style : 'tape'}
+        width={printW}
+        id={snap.$id}
+        date={new Date(snap.$createdAt)}
+        caption={snap.caption}
+        hour={snap.hour}
+        extra={!snap.onTime}
+        onPress={() => setSwapped((x) => !x)}
+        image={(which, size) => <SnapImage fileId={(which === 'big') !== swapped ? snap.backId : snap.frontId} style={size} />}
+      />
 
       <View style={styles.actions}>
         <Press

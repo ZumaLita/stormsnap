@@ -20,6 +20,8 @@ import { Streaks } from './src/screens/Streaks';
 import { Memories } from './src/screens/Memories';
 import { MeScreen } from './src/screens/MeScreen';
 import { Camera } from './src/screens/Camera';
+import { Onboarding } from './src/screens/Onboarding';
+import { isPhotoStyle, type PhotoStyle } from './src/components/Print';
 import {
   cleanupOld,
   currentUser,
@@ -28,6 +30,8 @@ import {
   listMembers,
   listRecentSnaps,
   listStreakRows,
+  getPrefs,
+  savePrefs,
   logout,
   react,
   toggleKeep,
@@ -70,6 +74,8 @@ export default function App() {
   const [start, setStart] = useState(DEFAULT_START_HOUR);
   const [end, setEnd] = useState(DEFAULT_END_HOUR);
   const [viewer, setViewer] = useState<{ ids: string[]; start: string } | null>(null);
+  const [photoStyle, setPhotoStyle] = useState<PhotoStyle>('tape');
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
 
   // Restore session and settings.
   useEffect(() => {
@@ -113,6 +119,17 @@ export default function App() {
     } finally {
       setRefreshing(false);
     }
+  }, [me]);
+
+  // Per-person settings live on the account so they follow you to every device.
+  useEffect(() => {
+    if (!me) return;
+    getPrefs().then((p) => {
+      if (isPhotoStyle(p.style)) setPhotoStyle(p.style);
+      if (p.appearance === 'auto' || p.appearance === 'light' || p.appearance === 'dark') setAppearance(p.appearance);
+      if (p.accent && p.accent in ACCENTS) setAccentKey(p.accent as AccentKey);
+      setOnboarded(!!p.onboarded);
+    });
   }, [me]);
 
   useEffect(() => {
@@ -176,6 +193,38 @@ export default function App() {
       />,
     );
 
+  if (onboarded === null)
+    return wrap(
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.surface }}>
+        <ActivityIndicator color={theme.primary} />
+      </View>,
+    );
+
+  if (!onboarded)
+    return wrap(
+      <Onboarding
+        name={me.name}
+        appearance={appearance}
+        accentKey={accentKey}
+        photoStyle={photoStyle}
+        onAppearance={(a) => {
+          setAppearance(a);
+          setItem('appearance', a);
+        }}
+        onAccent={(k) => {
+          setAccentKey(k);
+          setItem('accent', k);
+        }}
+        onPhotoStyle={setPhotoStyle}
+        onDone={(withReminders) => {
+          setReminders(withReminders);
+          setItem('reminders', withReminders ? '1' : '0');
+          setOnboarded(true);
+          savePrefs({ onboarded: true, style: photoStyle, appearance, accent: accentKey });
+        }}
+      />,
+    );
+
   const now = new Date();
   const onTime = now.getHours() >= start && now.getHours() <= end && now.getMinutes() < 15;
 
@@ -184,6 +233,7 @@ export default function App() {
       <Camera
         me={me}
         onTime={onTime}
+        photoStyle={photoStyle}
         onClose={() => setCamera(false)}
         onPosted={() => {
           setCamera(false);
@@ -233,10 +283,17 @@ export default function App() {
           onAppearance={(a) => {
             setAppearance(a);
             setItem('appearance', a);
+            savePrefs({ appearance: a });
+          }}
+          photoStyle={photoStyle}
+          onPhotoStyle={(p) => {
+            setPhotoStyle(p);
+            savePrefs({ style: p });
           }}
           onAccent={(k) => {
             setAccentKey(k);
             setItem('accent', k);
+            savePrefs({ accent: k });
           }}
           onReminders={(on) => {
             setReminders(on);
@@ -252,6 +309,7 @@ export default function App() {
             await scheduleReminders(false, start, end).catch(() => {});
             await logout();
             setMe(null);
+            setOnboarded(null);
             setSnaps([]);
             setKept([]);
             setStreakRows([]);

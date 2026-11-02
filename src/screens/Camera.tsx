@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,11 +24,13 @@ async function shrink(uri: string, width: number) {
 export function Camera({
   me,
   onTime,
+  photoStyle,
   onClose,
   onPosted,
 }: {
   me: Me;
   onTime: boolean;
+  photoStyle: string;
   onClose: () => void;
   onPosted: () => void;
 }) {
@@ -45,6 +47,17 @@ export function Camera({
   const [swapped, setSwapped] = useState(false);
   const [caption, setCaption] = useState('');
   const [error, setError] = useState('');
+  const [kb, setKb] = useState(0);
+
+  // Keep the caption and send button above the keyboard.
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKb(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const waitReady = () =>
     new Promise<void>((res) => {
@@ -89,7 +102,7 @@ export function Camera({
     setStep('posting');
     setError('');
     try {
-      await postSnap(me, back, front, caption, onTime);
+      await postSnap(me, back, front, caption, onTime, photoStyle);
       onPosted();
     } catch (e) {
       setError(niceError(e));
@@ -115,11 +128,10 @@ export function Camera({
   const reviewing = step === 'review' || step === 'posting';
   const big = swapped ? front : back;
   const small = swapped ? back : front;
-  const label = step === 'back' ? 'BACK' : step === 'front' ? 'SMILE' : onTime ? 'ON TIME' : 'EXTRA SNAP';
+  const label = step === 'back' ? 'Back camera' : step === 'front' ? 'Now smile' : onTime ? 'On time' : 'Extra snap';
 
   return (
-    <View style={styles.black}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+    <View style={[styles.black, { paddingBottom: kb }]}>
         <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
           <Press onPress={onClose} radius={22} accessibilityLabel="Close" style={styles.circle}>
             <Icon name="close" size={24} color="#FFFFFF" />
@@ -127,7 +139,13 @@ export function Camera({
           <View style={[styles.mode, step === 'front' && { backgroundColor: '#FFD60A' }]}>
             <Text style={[T.labelMedium, { color: step === 'front' ? '#000' : '#FFD60A', letterSpacing: 0.5 }]}>{label}</Text>
           </View>
-          <View style={{ width: 44 }} />
+          {reviewing ? (
+            <Press onPress={retake} radius={22} accessibilityLabel="Retake" style={styles.circle}>
+              <Icon name="camera-retake-outline" size={22} color="#FFFFFF" />
+            </Press>
+          ) : (
+            <View style={{ width: 44 }} />
+          )}
         </View>
 
         <View style={styles.frame}>
@@ -160,30 +178,39 @@ export function Camera({
           )}
         </View>
 
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
-          {!!error && <Text style={[T.bodyMedium, { color: '#FF453A', textAlign: 'center' }]}>{error}</Text>}
+        <View style={[styles.bottom, { paddingBottom: kb ? 10 : insets.bottom + 16 }]}>
+          {!!error && <Text style={[T.bodyMedium, { color: '#FF8A80', textAlign: 'center' }]}>{error}</Text>}
           {!reviewing ? (
             <Press onPress={shoot} disabled={step !== 'back'} squish={0.88} morph={24} radius={39} accessibilityLabel="Take snap" style={styles.shutter}>
               <View style={styles.shutterInner} />
             </Press>
           ) : (
             <>
-              <TextInput
-                value={caption}
-                onChangeText={setCaption}
-                placeholder="Add a caption"
-                placeholderTextColor="rgba(235,235,245,0.4)"
-                maxLength={140}
-                style={[styles.caption, T.bodyLarge]}
-              />
-              <View style={styles.row}>
-                <Button title="Retake" variant="tonal" icon="refresh" onPress={retake} big style={{ flex: 1 }} />
-                <Button title="Post" icon="send" busy={step === 'posting'} onPress={post} big style={{ flex: 1 }} />
+              <View style={styles.sendRow}>
+                <TextInput
+                  value={caption}
+                  onChangeText={setCaption}
+                  placeholder="Add a caption"
+                  placeholderTextColor="rgba(235,235,245,0.45)"
+                  maxLength={140}
+                  returnKeyType="send"
+                  onSubmitEditing={post}
+                  style={[styles.caption, T.bodyLarge]}
+                />
+                <Press
+                  onPress={step === 'posting' ? undefined : post}
+                  radius={28}
+                  squish={0.88}
+                  accessibilityLabel="Send snap"
+                  style={[styles.send, { backgroundColor: c.primary }]}
+                >
+                  {step === 'posting' ? <ActivityIndicator color={c.onPrimary} /> : <Icon name="send" size={24} color={c.onPrimary} />}
+                </Press>
               </View>
+              {!kb && <Text style={[T.bodySmall, { color: 'rgba(235,235,245,0.55)' }]}>Tap the small photo to swap them</Text>}
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -197,9 +224,10 @@ const mk = (c: ReturnType<typeof useTheme>) =>
   mode: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(118,118,128,0.3)' },
   frame: { flex: 1, marginHorizontal: 12, borderRadius: 28, overflow: 'hidden', backgroundColor: '#1C1C1E', maxWidth: 540, width: '94%', alignSelf: 'center' },
   inset: { position: 'absolute', top: 14, left: 14, width: 104, height: 138, borderRadius: 14, overflow: 'hidden', borderWidth: 2.5, borderColor: '#FFFFFF', backgroundColor: '#2C2C2E' },
-  bottom: { paddingTop: 20, paddingHorizontal: 16, alignItems: 'center', gap: 12, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  bottom: { paddingTop: 14, paddingHorizontal: 16, alignItems: 'center', gap: 12, maxWidth: 560, width: '100%', alignSelf: 'center' },
   shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: c.primaryContainer },
-  caption: { width: '100%', height: 56, borderRadius: 28, paddingHorizontal: 16, backgroundColor: 'rgba(118,118,128,0.24)', color: '#FFFFFF' },
-  row: { flexDirection: 'row', gap: 10, width: '100%' },
+  sendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' },
+  caption: { flex: 1, height: 56, borderRadius: 28, paddingHorizontal: 20, backgroundColor: 'rgba(118,118,128,0.28)', color: '#FFFFFF' },
+  send: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
 });
