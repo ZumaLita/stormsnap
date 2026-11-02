@@ -102,7 +102,7 @@ export function Onboarding({
                     style={st.colourItem}
                   >
                     <View style={[st.swatch, { backgroundColor: col, borderColor: on ? c.onSurface : 'transparent', borderRadius: on ? S.lg : 32 }]}>
-                      {on && <Icon name="check" size={24} color={c.dark ? '#0E1322' : '#FFFFFF'} />}
+                      {on && <Icon name="check" size={24} color={c.dark ? '#0B1A12' : '#FFFFFF'} />}
                     </View>
                     <Text style={[T.labelMedium, { color: on ? c.onSurface : c.onSurfaceVariant, fontFamily: on ? FONTS.xb : FONTS.sb }]}>{ACCENTS[k].name}</Text>
                   </Pressable>

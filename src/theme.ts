@@ -1,20 +1,21 @@
 // StormSnap identity: a family photobooth.
-// Every snap is a printed photo with a film-camera date stamp, laid on a sky-blue table.
+// Every snap is a printed photo with a film-camera date stamp, laid on a warm cream table.
+// Family colours: home green + cream, so it never looks like the violet school app HourSnap.
 import { createContext, useContext, useMemo } from 'react';
 import { TextStyle } from 'react-native';
 
 export type Appearance = 'auto' | 'light' | 'dark';
-export type AccentKey = 'storm' | 'ocean' | 'mint' | 'berry' | 'ember';
+export type AccentKey = 'home' | 'ocean' | 'sun' | 'berry' | 'ember';
 
-// The colour used for buttons and the shutter. Storm violet is the house colour.
+// The colour used for buttons and the shutter. Home green is the family colour.
 export const ACCENTS: Record<AccentKey, { name: string; light: string; dark: string; soft: string; softDark: string }> = {
-  storm: { name: 'Storm', light: '#4A3AFF', dark: '#8F86FF', soft: '#E3E0FF', softDark: '#2A2560' },
+  home: { name: 'Home', light: '#1E7A55', dark: '#6FD3A4', soft: '#D7F0E3', softDark: '#173D2D' },
   ocean: { name: 'Ocean', light: '#0B6BCB', dark: '#6FB3F5', soft: '#D9EBFB', softDark: '#173452' },
-  mint: { name: 'Mint', light: '#0F8A5F', dark: '#5ED3A5', soft: '#D5F2E6', softDark: '#123A2C' },
+  sun: { name: 'Sun', light: '#B26A00', dark: '#F6C35B', soft: '#FCEBCB', softDark: '#3F2E0E' },
   berry: { name: 'Berry', light: '#C2185B', dark: '#F48FB1', soft: '#FBDDE8', softDark: '#4A1A2C' },
   ember: { name: 'Ember', light: '#D9480F', dark: '#FF9F6B', soft: '#FFE3D3', softDark: '#4A2412' },
 };
-export const ACCENT_ORDER: AccentKey[] = ['storm', 'ocean', 'mint', 'berry', 'ember'];
+export const ACCENT_ORDER: AccentKey[] = ['home', 'ocean', 'sun', 'berry', 'ember'];
 
 export type Theme = {
   dark: boolean;
@@ -55,7 +56,7 @@ export type Theme = {
 
 export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDark: boolean): Theme {
   const dark = appearance === 'auto' ? systemDark : appearance === 'dark';
-  const a = ACCENTS[accentKey] ?? ACCENTS.storm;
+  const a = ACCENTS[accentKey] ?? ACCENTS.home;
   const primary = dark ? a.dark : a.light;
   if (dark)
     return {
@@ -63,23 +64,23 @@ export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDa
       appearance,
       accentKey,
       primary,
-      onPrimary: '#0E1322',
+      onPrimary: '#0B1A12',
       primaryContainer: primary,
-      onPrimaryContainer: '#0E1322',
+      onPrimaryContainer: '#0B1A12',
       secondaryContainer: a.softDark,
-      onSecondaryContainer: '#EEF1F8',
+      onSecondaryContainer: '#EEF3EC',
       tertiaryContainer: '#4A3A0E',
       onTertiaryContainer: '#FFE7A8',
-      surface: '#0E1322',
-      surfaceContainerLowest: '#0A0E1A',
-      surfaceContainerLow: '#172036',
-      surfaceContainer: '#1B2540',
-      surfaceContainerHigh: '#212C4A',
-      surfaceContainerHighest: '#2A3657',
-      onSurface: '#EEF1F8',
-      onSurfaceVariant: '#9BA6C2',
-      outline: '#5D6889',
-      outlineVariant: '#2B3654',
+      surface: '#101A15',
+      surfaceContainerLowest: '#0B130F',
+      surfaceContainerLow: '#17231C',
+      surfaceContainer: '#1C2A22',
+      surfaceContainerHigh: '#223329',
+      surfaceContainerHighest: '#2B3E33',
+      onSurface: '#EEF3EC',
+      onSurfaceVariant: '#A3B3A6',
+      outline: '#647568',
+      outlineVariant: '#2C3B31',
       error: '#FF8A80',
       errorContainer: '#5C1A17',
       onErrorContainer: '#FFDAD6',
@@ -90,7 +91,7 @@ export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDa
       fire: '#FFB020',
       fireContainer: '#3D2A06',
       onFireContainer: '#FFD98A',
-      shield: '#7FB6FF',
+      shield: '#7FD0E8',
     };
   return {
     dark,
@@ -101,34 +102,34 @@ export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDa
     primaryContainer: primary,
     onPrimaryContainer: '#FFFFFF',
     secondaryContainer: a.soft,
-    onSecondaryContainer: '#121A2E',
+    onSecondaryContainer: '#1F2A22',
     tertiaryContainer: '#FFEDB8',
     onTertiaryContainer: '#4A3500',
-    surface: '#E4ECF7',
+    surface: '#F4EDDF',
     surfaceContainerLowest: '#FFFFFF',
-    surfaceContainerLow: '#FFFFFF',
-    surfaceContainer: '#F2F6FC',
-    surfaceContainerHigh: '#D7E1EF',
-    surfaceContainerHighest: '#CAD6E7',
-    onSurface: '#121A2E',
-    onSurfaceVariant: '#55607A',
-    outline: '#8A95AE',
-    outlineVariant: '#C9D4E5',
+    surfaceContainerLow: '#FFFDF8',
+    surfaceContainer: '#FAF5EA',
+    surfaceContainerHigh: '#EAE1CE',
+    surfaceContainerHighest: '#E0D5BE',
+    onSurface: '#1F2A22',
+    onSurfaceVariant: '#5E6B60',
+    outline: '#8E9A8F',
+    outlineVariant: '#DCD3C0',
     error: '#C62828',
     errorContainer: '#FFDAD6',
     onErrorContainer: '#5C0A0A',
     print: '#FFFFFF',
-    printShadow: '#3A4E7A',
+    printShadow: '#4A3A1E',
     stamp: '#FF6A1A',
     tape: 'rgba(255,236,170,0.75)',
     fire: '#FF9F0A',
     fireContainer: '#FFE7B3',
     onFireContainer: '#5A3700',
-    shield: '#2F6FE4',
+    shield: '#1F7FA8',
   };
 }
 
-export const ThemeContext = createContext<Theme>(makeTheme('auto', 'storm', false));
+export const ThemeContext = createContext<Theme>(makeTheme('auto', 'home', false));
 export const useTheme = () => useContext(ThemeContext);
 export function useStyles<T>(make: (t: Theme) => T): T {
   const t = useTheme();
@@ -173,7 +174,7 @@ export const T = {
 
 export const S = { xs: 4, sm: 8, md: 12, lg: 16, lgInc: 20, xl: 24, xlInc: 28, xxl: 40, full: 999 };
 
-const AVATAR = ['#FF6A1A', '#4A3AFF', '#0F8A5F', '#C2185B', '#0B6BCB', '#B7791F'];
+const AVATAR = ['#E07A2E', '#1E7A55', '#C2185B', '#B26A00', '#0F8F8F', '#8B5E3C'];
 export const colorFor = (id: string) => {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;

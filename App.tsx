@@ -60,7 +60,7 @@ export default function App() {
   });
   const systemDark = useColorScheme() === 'dark';
   const [appearance, setAppearance] = useState<Appearance>('auto');
-  const [accentKey, setAccentKey] = useState<AccentKey>('storm');
+  const [accentKey, setAccentKey] = useState<AccentKey>('home');
   const theme = useMemo(() => makeTheme(appearance, accentKey, systemDark), [appearance, accentKey, systemDark]);
 
   const [booting, setBooting] = useState(true);

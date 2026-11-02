@@ -14,19 +14,22 @@
     "android": {
       "package": "be.ictstorm.stormsnap",
       "adaptiveIcon": {
-        "backgroundColor": "#FF6A1A",
+        "backgroundColor": "#1E7A55",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "permissions": ["CAMERA", "POST_NOTIFICATIONS"],
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "name": "StormSnap",
-      "backgroundColor": "#0B0C10",
-      "themeColor": "#0B0C10",
+      "backgroundColor": "#101A15",
+      "themeColor": "#1E7A55",
       "output": "single"
     },
     "plugins": [
@@ -42,7 +45,7 @@
       [
         "expo-notifications",
         {
-          "color": "#E2668F"
+          "color": "#1E7A55"
         }
       ]
     ]

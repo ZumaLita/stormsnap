@@ -138,7 +138,7 @@ export function MeScreen({
                 accessibilityState={{ selected: on }}
                 style={[s.swatch, { backgroundColor: col, borderRadius: on ? S.lg : 28, borderWidth: 3, borderColor: on ? c.onSurface : 'transparent' }]}
               >
-                {on && <Icon name="check" size={22} color={c.dark ? '#0E1322' : '#FFFFFF'} />}
+                {on && <Icon name="check" size={22} color={c.dark ? '#0B1A12' : '#FFFFFF'} />}
               </Pressable>
             );
           })}
