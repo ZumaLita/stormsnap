@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Icon, Press } from '../components/ui';
 import { SnapCard } from '../components/SnapCard';
@@ -114,7 +114,10 @@ export function Home({
   const header = (
     <View>
       <View style={s.top}>
-        <Text style={[s.wordmark, { color: c.onSurface }]}>StormSnap</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Image source={require('../../assets/logo-mark.png')} style={{ width: 36, height: 36 }} accessibilityLabel="" />
+          <Text style={[s.wordmark, { color: c.onSurface }]}>StormSnap</Text>
+        </View>
         <Press onPress={onStreaks} radius={S.full} accessibilityLabel={`Streak ${streak} hours`} style={[s.streak, { backgroundColor: streak > 0 ? c.fireContainer : c.surfaceContainerLow }]}>
           <Icon name="fire" size={20} color={streak > 0 ? c.fire : c.outline} />
           <Text style={[T.titleMedium, T.num, { color: streak > 0 ? c.onFireContainer : c.onSurfaceVariant }]}>{streak}</Text>

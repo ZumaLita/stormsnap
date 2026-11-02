@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Icon, Shape, type IconName } from '../components/ui';
+import { Button, Icon, type IconName } from '../components/ui';
 import { S, T, useStyles, useTheme, type Theme } from '../theme';
 import { login, niceError, type Me } from '../api';
 
@@ -59,9 +59,7 @@ export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: c.surface }}>
       <ScrollView contentContainerStyle={[s.wrap, { paddingTop: insets.top + 56, paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
-        <Shape kind="burst" size={112} color={c.primaryContainer} style={{ alignSelf: 'center' }}>
-          <Icon name="camera" size={48} color={c.onPrimaryContainer} />
-        </Shape>
+        <Image source={require('../../assets/logo-mark.png')} style={{ width: 112, height: 112, alignSelf: 'center', transform: [{ rotate: '-4deg' }] }} accessibilityLabel="StormSnap logo" />
         <Text style={[T.displayMedium, { color: c.onSurface, textAlign: 'center', marginTop: 24 }]}>StormSnap</Text>
         <Text style={[T.bodyLarge, { color: c.onSurfaceVariant, textAlign: 'center', marginTop: 8, marginBottom: 32 }]}>
           Your family, every hour.{'\n'}Back camera and selfie, together.
