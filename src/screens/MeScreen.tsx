@@ -3,11 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Glass, PillButton, SnapImage } from '../components/ui';
-import { C, F } from '../theme';
+import { F, THEMES, THEME_ORDER, useStyles, useTheme, type Theme, type ThemeKey } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { changePin, niceError, type Me, type Snap } from '../api';
 import { remindersSupported } from '../notify';
 
 function Stepper({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min: number; max: number }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.stepper}>
       <Pressable onPress={() => onChange(Math.max(min, value - 1))} style={styles.stepBtn} accessibilityLabel="Earlier">
@@ -32,6 +35,7 @@ export function MeScreen({
   onReminders,
   onWindow,
   onLogout,
+  onTheme,
 }: {
   me: Me;
   code: string;
@@ -43,7 +47,10 @@ export function MeScreen({
   onReminders: (on: boolean) => void;
   onWindow: (start: number, end: number) => void;
   onLogout: () => void;
+  onTheme: (k: ThemeKey) => void;
 }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const mine = snaps.filter((s) => s.authorId === me.id);
   const reactionsGot = mine.reduce((n, s) => n + s.reactions.filter((r) => !r.startsWith(me.id + ':')).length, 0);
@@ -111,6 +118,22 @@ export function MeScreen({
         </View>
       )}
 
+      <Text style={styles.section}>Colours</Text>
+      <View style={styles.themes}>
+        {THEME_ORDER.map((k) => {
+          const th = THEMES[k];
+          const on = C.key === k;
+          return (
+            <Pressable key={k} onPress={() => onTheme(k)} style={styles.themeItem} accessibilityLabel={`${th.name} colours`}>
+              <LinearGradient colors={th.bg} style={[styles.swatch, on && { borderColor: C.accent, borderWidth: 3 }]}>
+                <View style={[styles.swatchDot, { backgroundColor: th.accent }]} />
+              </LinearGradient>
+              <Text style={[styles.themeName, on && { color: C.ink, fontFamily: F.semibold }]}>{th.name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <Text style={styles.section}>Settings</Text>
       <Glass style={styles.settings} strong>
         <View style={styles.row}>
@@ -124,7 +147,7 @@ export function MeScreen({
             value={reminders && remindersSupported}
             disabled={!remindersSupported}
             onValueChange={onReminders}
-            trackColor={{ true: C.accent, false: 'rgba(28,20,24,0.15)' }}
+            trackColor={{ true: C.accent, false: C.empty }}
             thumbColor={C.white}
           />
         </View>
@@ -157,13 +180,14 @@ export function MeScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Theme) =>
+  StyleSheet.create({
   wrap: { paddingHorizontal: 18, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  name: { fontFamily: F.semibold, fontSize: 26, color: C.white, marginTop: 12, textShadowColor: 'rgba(184,69,109,0.3)', textShadowRadius: 10 },
+  name: { fontFamily: F.semibold, fontSize: 26, color: C.headline, marginTop: 12, textShadowColor: C.headlineShadow, textShadowRadius: 10 },
   sub: { fontFamily: F.regular, fontSize: 13, color: C.inkSoft, marginTop: 2 },
   stats: { flexDirection: 'row', marginTop: 20, paddingVertical: 16 },
   stat: { flex: 1, alignItems: 'center' },
-  statBorder: { borderLeftWidth: 1, borderLeftColor: 'rgba(28,20,24,0.08)' },
+  statBorder: { borderLeftWidth: 1, borderLeftColor: C.empty },
   statNum: { fontFamily: F.semibold, fontSize: 20, color: C.ink },
   statLabel: { fontFamily: F.regular, fontSize: 12, color: C.muted, marginTop: 2 },
   section: { fontFamily: F.semibold, fontSize: 18, color: C.ink, marginTop: 26, marginBottom: 12 },
@@ -186,18 +210,31 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   settings: { padding: 16, gap: 12 },
+  themes: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  themeItem: { alignItems: 'center', gap: 6, width: 72 },
+  swatch: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: C.glassBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatchDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#FFFFFF' },
+  themeName: { fontFamily: F.medium, fontSize: 12, color: C.muted },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowTitle: { fontFamily: F.medium, fontSize: 15, color: C.ink },
   rowSub: { fontFamily: F.regular, fontSize: 12, color: C.muted, marginTop: 2 },
-  divider: { height: 1, backgroundColor: 'rgba(28,20,24,0.07)' },
+  divider: { height: 1, backgroundColor: C.empty },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.white, alignItems: 'center', justifyContent: 'center' },
+  stepBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.field, alignItems: 'center', justifyContent: 'center' },
   stepVal: { fontFamily: F.semibold, fontSize: 15, color: C.ink, minWidth: 34, textAlign: 'center' },
   input: {
     height: 48,
     borderRadius: 24,
     paddingHorizontal: 18,
-    backgroundColor: C.white,
+    backgroundColor: C.field,
     fontFamily: F.medium,
     fontSize: 15,
     color: C.ink,

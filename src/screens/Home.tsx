@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Glass, PillButton, RoundButton, SnapImage } from '../components/ui';
 import { SnapCard } from '../components/SnapCard';
-import { C, F } from '../theme';
+import { F, useStyles, useTheme, type Theme } from '../theme';
 import { dayKey, type Me, type Member, type Snap } from '../api';
 
 function dayLabel(day: string) {
@@ -43,6 +43,8 @@ export function Home({
   onDelete: (s: Snap) => void;
   onBell: () => void;
 }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<string | null>(null);
   const today = dayKey();
@@ -105,7 +107,7 @@ export function Home({
               <View>
                 <Avatar id={me.id} name={me.name} size={50} ring />
                 <View style={styles.plus}>
-                  <Ionicons name="add" size={14} color={C.white} />
+                  <Ionicons name="add" size={14} color={C.onAccent} />
                 </View>
               </View>
               <Text style={styles.storyName}>Your snap</Text>
@@ -118,7 +120,7 @@ export function Home({
           return (
             <Pressable key={m.id} onPress={() => setFilter(active ? null : m.id)}>
               <View style={[styles.story, active && styles.storyActive]}>
-                {s ? <SnapImage fileId={s.backId} style={StyleSheet.absoluteFill as never} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.5)' }]} />}
+                {s ? <SnapImage fileId={s.backId} style={StyleSheet.absoluteFill as never} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: C.glass }]} />}
                 <View style={styles.storyAvatar}>
                   <Avatar id={m.id} name={m.name} size={28} ring />
                 </View>
@@ -168,14 +170,15 @@ export function Home({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Theme) =>
+  StyleSheet.create({
   wrap: { paddingHorizontal: 18, maxWidth: 560, width: '100%', alignSelf: 'center' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   mePill: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 6, paddingRight: 18, flexShrink: 1 },
   meName: { fontFamily: F.semibold, fontSize: 15, color: C.ink },
   meSub: { fontFamily: F.regular, fontSize: 12, color: C.muted },
   iconPair: { flexDirection: 'row', gap: 6, padding: 6 },
-  h1: { fontFamily: F.medium, fontSize: 36, lineHeight: 42, color: C.white, marginTop: 26, marginBottom: 20, textShadowColor: 'rgba(184,69,109,0.3)', textShadowRadius: 10 },
+  h1: { fontFamily: F.medium, fontSize: 36, lineHeight: 42, color: C.headline, marginTop: 26, marginBottom: 20, textShadowColor: C.headlineShadow, textShadowRadius: 10 },
   h1Bold: { fontFamily: F.semibold },
   h1Italic: { fontFamily: F.lightItalic },
   stories: { gap: 10, paddingBottom: 18, paddingRight: 8 },
@@ -189,7 +192,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: C.ink,
+    backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -203,7 +206,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: C.glassStrong,
+    backgroundColor: C.field,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,

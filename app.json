@@ -14,7 +14,7 @@
     "android": {
       "package": "be.ictstorm.stormsnap",
       "adaptiveIcon": {
-        "backgroundColor": "#F6D3E1",
+        "backgroundColor": "#0B0C10",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -25,8 +25,8 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "name": "StormSnap",
-      "backgroundColor": "#F6D3E1",
-      "themeColor": "#F6D3E1",
+      "backgroundColor": "#0B0C10",
+      "themeColor": "#0B0C10",
       "output": "single"
     },
     "plugins": [

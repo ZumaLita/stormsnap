@@ -3,13 +3,15 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Background, Glass, PillButton } from '../components/ui';
-import { C, F } from '../theme';
+import { F, useStyles, useTheme, type Theme } from '../theme';
 import { login, niceError, type Me } from '../api';
 
 function Field({
   icon,
   ...props
 }: { icon: keyof typeof Ionicons.glyphMap } & React.ComponentProps<typeof TextInput>) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   return (
     <View style={styles.field}>
       <Ionicons name={icon} size={18} color={C.muted} />
@@ -19,6 +21,8 @@ function Field({
 }
 
 export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -51,7 +55,7 @@ export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.logo}>
-            <Ionicons name="camera" size={30} color={C.white} />
+            <Ionicons name="camera" size={30} color={C.onAccent} />
           </View>
           <Text style={styles.h1}>
             Your family,{'\n'}
@@ -82,19 +86,20 @@ export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Theme) =>
+  StyleSheet.create({
   wrap: { paddingHorizontal: 22, maxWidth: 480, width: '100%', alignSelf: 'center' },
   logo: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: C.nav,
+    backgroundColor: C.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 28,
   },
-  h1: { fontFamily: F.semibold, fontSize: 40, lineHeight: 46, color: C.white, textShadowColor: 'rgba(184,69,109,0.35)', textShadowRadius: 12 },
-  h1Italic: { fontFamily: F.lightItalic, color: C.white },
+  h1: { fontFamily: F.semibold, fontSize: 40, lineHeight: 46, color: C.headline, textShadowColor: C.headlineShadow, textShadowRadius: 12 },
+  h1Italic: { fontFamily: F.lightItalic, color: C.headline },
   sub: { fontFamily: F.regular, fontSize: 15, lineHeight: 22, color: C.inkSoft, marginTop: 12, marginBottom: 28 },
   card: { padding: 16, gap: 10 },
   field: {
@@ -104,7 +109,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     paddingHorizontal: 18,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: C.field,
     borderWidth: 1,
     borderColor: C.glassBorder,
   },

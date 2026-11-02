@@ -3,7 +3,7 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Avatar, Glass, SnapImage } from './ui';
-import { C, F } from '../theme';
+import { F, useStyles, useTheme, type Theme } from '../theme';
 import { REACTIONS } from '../config';
 import type { Snap } from '../api';
 
@@ -29,6 +29,8 @@ export function SnapCard({
   onKeep: () => void;
   onDelete: () => void;
 }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   const [swapped, setSwapped] = useState(false);
   const [picker, setPicker] = useState(false);
   const big = swapped ? snap.frontId : snap.backId;
@@ -137,7 +139,8 @@ export function SnapCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Theme) =>
+  StyleSheet.create({
   card: { padding: 10, marginBottom: 16 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 6, paddingBottom: 10 },
   name: { fontFamily: F.semibold, fontSize: 15, color: C.ink },
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: C.white,
+    backgroundColor: C.field,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -183,11 +186,11 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: C.field,
     borderWidth: 1,
     borderColor: C.glassBorder,
   },
-  chipOn: { backgroundColor: '#FCE1EB', borderColor: '#F3B5CB' },
+  chipOn: { backgroundColor: C.accentSoft, borderColor: C.accentBorder },
   chipText: { fontFamily: F.medium, fontSize: 13, color: C.ink },
   count: { fontSize: 14, fontFamily: F.medium, color: C.inkSoft },
   picker: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 10 },

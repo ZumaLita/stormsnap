@@ -5,7 +5,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { PillButton, RoundButton } from '../components/ui';
-import { C, F } from '../theme';
+import { F, useStyles, useTheme, type Theme } from '../theme';
 import { niceError, postSnap, type Me } from '../api';
 
 type Step = 'back' | 'front' | 'review' | 'posting';
@@ -32,6 +32,8 @@ export function Camera({
   onClose: () => void;
   onPosted: () => void;
 }) {
+  const C = useTheme();
+  const styles = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -197,7 +199,8 @@ export function Camera({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C: Theme) =>
+  StyleSheet.create({
   black: { flex: 1, backgroundColor: '#0D0B0C' },
   center: { alignItems: 'center', justifyContent: 'center' },
   frame: {

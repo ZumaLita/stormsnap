@@ -81,7 +81,25 @@ export async function listRecentSnaps(): Promise<Snap[]> {
     tableId: SNAPS_TABLE,
     queries: [Query.greaterThan('$createdAt', since), Query.orderDesc('$createdAt'), Query.limit(200)],
   });
-  return r.rows as unknown as Snap[];
+  return (r.rows as unknown as Snap[]).filter((x) => x.backId !== EXPIRED);
+}
+
+export const EXPIRED = 'expired';
+
+/** Light rows (no photos) for every snap ever, used for streaks. */
+export async function listStreakRows() {
+  const out: { authorId: string; day: string; hour: number }[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page++) {
+    const queries = [Query.select(['$id', 'authorId', 'day', 'hour']), Query.orderAsc('$createdAt'), Query.limit(500)];
+    if (cursor) queries.push(Query.cursorAfter(cursor));
+    const r = await tables.listRows({ databaseId: DB_ID, tableId: SNAPS_TABLE, queries });
+    const rows = r.rows as unknown as { $id: string; authorId: string; day: string; hour: number }[];
+    rows.forEach((x) => out.push({ authorId: x.authorId, day: x.day, hour: x.hour }));
+    if (rows.length < 500) break;
+    cursor = rows[rows.length - 1].$id;
+  }
+  return out;
 }
 
 export async function listKeptSnaps(userId: string): Promise<Snap[]> {
@@ -158,16 +176,36 @@ export async function deleteSnap(snap: Snap) {
   ]);
 }
 
-/** Removes my own snaps older than 7 days that nobody starred. */
+/**
+ * Deletes the photos of my own snaps older than 7 days that nobody starred.
+ * The tiny row stays (marked expired) so streaks keep their history.
+ */
 export async function cleanupOld(userId: string) {
   const before = new Date(Date.now() - KEEP_DAYS * 864e5).toISOString();
   try {
     const r = await tables.listRows({
       databaseId: DB_ID,
       tableId: SNAPS_TABLE,
-      queries: [Query.equal('authorId', userId), Query.lessThan('$createdAt', before), Query.limit(100)],
+      queries: [
+        Query.equal('authorId', userId),
+        Query.lessThan('$createdAt', before),
+        Query.notEqual('backId', EXPIRED),
+        Query.limit(100),
+      ],
     });
-    for (const s of r.rows as unknown as Snap[]) if (!s.keptBy?.length) await deleteSnap(s);
+    for (const s of r.rows as unknown as Snap[]) {
+      if (s.keptBy?.length) continue;
+      await Promise.allSettled([
+        storage.deleteFile({ bucketId: BUCKET_ID, fileId: s.backId }),
+        storage.deleteFile({ bucketId: BUCKET_ID, fileId: s.frontId }),
+      ]);
+      await tables.updateRow({
+        databaseId: DB_ID,
+        tableId: SNAPS_TABLE,
+        rowId: s.$id,
+        data: { backId: EXPIRED, frontId: EXPIRED, caption: null },
+      });
+    }
   } catch {}
 }
 

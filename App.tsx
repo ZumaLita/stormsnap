@@ -11,12 +11,13 @@ import {
   Figtree_600SemiBold,
   Figtree_700Bold,
   Figtree_700Bold_Italic,
+  Figtree_800ExtraBold,
 } from '@expo-google-fonts/figtree';
 import { Background } from './src/components/ui';
 import { PillNav, type Tab } from './src/components/PillNav';
 import { Login } from './src/screens/Login';
 import { Home } from './src/screens/Home';
-import { Family } from './src/screens/Family';
+import { Streaks } from './src/screens/Streaks';
 import { MeScreen } from './src/screens/MeScreen';
 import { Camera } from './src/screens/Camera';
 import {
@@ -26,6 +27,7 @@ import {
   listKeptSnaps,
   listMembers,
   listRecentSnaps,
+  listStreakRows,
   logout,
   react,
   toggleKeep,
@@ -36,7 +38,8 @@ import {
 import { DEFAULT_END_HOUR, DEFAULT_START_HOUR } from './src/config';
 import { getItem, setItem } from './src/store';
 import { onReminderTap, scheduleReminders } from './src/notify';
-import { C } from './src/theme';
+import { DEFAULT_THEME, THEMES, ThemeContext, type ThemeKey } from './src/theme';
+import type { StreakRow } from './src/streak';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -47,7 +50,11 @@ export default function App() {
     Figtree_600SemiBold,
     Figtree_700Bold,
     Figtree_700Bold_Italic,
+    Figtree_800ExtraBold,
   });
+  const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
+  const theme = THEMES[themeKey];
+  const [streakRows, setStreakRows] = useState<StreakRow[]>([]);
   const [booting, setBooting] = useState(true);
   const [me, setMe] = useState<Me | null>(null);
   const [code, setCode] = useState('');
@@ -64,6 +71,8 @@ export default function App() {
   // Restore session and settings.
   useEffect(() => {
     (async () => {
+      const th = (await getItem('theme')) as ThemeKey | null;
+      if (th && THEMES[th]) setThemeKey(th);
       const [u, c, r, s, e] = await Promise.all([
         currentUser(),
         getItem('code'),
@@ -84,10 +93,16 @@ export default function App() {
     if (!me) return;
     setRefreshing(true);
     try {
-      const [m, s, k] = await Promise.all([listMembers(), listRecentSnaps(), listKeptSnaps(me.id)]);
+      const [m, s, k, sr] = await Promise.all([
+        listMembers(),
+        listRecentSnaps(),
+        listKeptSnaps(me.id),
+        listStreakRows().catch(() => null),
+      ]);
       setMembers(m);
       setSnaps(s);
       setKept(k);
+      if (sr) setStreakRows(sr);
     } catch (e) {
       console.warn('load failed', e);
     } finally {
@@ -120,37 +135,41 @@ export default function App() {
     });
   };
 
+  const wrap = (node: React.ReactNode, light = !theme.dark) => (
+    <ThemeContext.Provider value={theme}>
+      <SafeAreaProvider>
+        <StatusBar style={light ? 'dark' : 'light'} />
+        {node}
+      </SafeAreaProvider>
+    </ThemeContext.Provider>
+  );
+
   if (!fontsLoaded || booting)
-    return (
+    return wrap(
       <Background>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={C.white} size="large" />
+          <ActivityIndicator color={theme.accent} size="large" />
         </View>
-      </Background>
+      </Background>,
     );
 
   if (!me)
-    return (
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <Login
-          onDone={(u, c) => {
-            setCode(c);
-            setItem('code', c);
-            setMe(u);
-          }}
-        />
-      </SafeAreaProvider>
+    return wrap(
+      <Login
+        onDone={(u, c) => {
+          setCode(c);
+          setItem('code', c);
+          setMe(u);
+        }}
+      />,
     );
 
   const now = new Date();
   const onTime = now.getHours() >= start && now.getHours() <= end && now.getMinutes() < 15;
 
   if (camera)
-    return (
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Camera
+    return wrap(
+      <Camera
           me={me}
           onTime={onTime}
           onClose={() => setCamera(false)}
@@ -159,13 +178,11 @@ export default function App() {
             setTab('home');
             load();
           }}
-        />
-      </SafeAreaProvider>
+        />,
+      false,
     );
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
+  return wrap(
       <Background>
         {tab === 'home' && (
           <Home
@@ -187,8 +204,8 @@ export default function App() {
             onBell={() => setTab('me')}
           />
         )}
-        {tab === 'family' && (
-          <Family me={me} members={members} snaps={snaps} start={start} end={end} refreshing={refreshing} onRefresh={load} />
+        {tab === 'streaks' && (
+          <Streaks me={me} members={members} rows={streakRows} refreshing={refreshing} onRefresh={load} />
         )}
         {tab === 'me' && (
           <MeScreen
@@ -217,10 +234,13 @@ export default function App() {
               setKept([]);
               setTab('home');
             }}
+            onTheme={(k) => {
+              setThemeKey(k);
+              setItem('theme', k);
+            }}
           />
         )}
         <PillNav tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
-      </Background>
-    </SafeAreaProvider>
+      </Background>,
   );
 }
