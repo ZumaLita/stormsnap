@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Avatar, Glass, PillButton, SnapImage } from '../components/ui';
-import { F, THEMES, THEME_ORDER, useStyles, useTheme, type Theme, type ThemeKey } from '../theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Avatar, Button, LargeTitle, Row, Section, Segmented, tapHaptic } from '../components/ui';
+import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { ACCENTS, ACCENT_ORDER, T, useStyles, useTheme, type AccentKey, type Appearance, type Theme } from '../theme';
 import { changePin, niceError, type Me, type Snap } from '../api';
 import { remindersSupported } from '../notify';
 
 function Stepper({ value, onChange, min, max }: { value: number; onChange: (v: number) => void; min: number; max: number }) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
+  const c = useTheme();
+  const btn = (icon: 'remove' | 'add', next: number, disabled: boolean) => (
+    <Pressable
+      onPress={() => {
+        if (disabled) return;
+        tapHaptic();
+        onChange(next);
+      }}
+      accessibilityLabel={icon === 'add' ? 'Later' : 'Earlier'}
+      style={{ width: 44, height: 32, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}
+    >
+      <Ionicons name={icon} size={18} color={c.label} />
+    </Pressable>
+  );
   return (
-    <View style={styles.stepper}>
-      <Pressable onPress={() => onChange(Math.max(min, value - 1))} style={styles.stepBtn} accessibilityLabel="Earlier">
-        <Ionicons name="remove" size={18} color={C.ink} />
-      </Pressable>
-      <Text style={styles.stepVal}>{String(value).padStart(2, '0')}u</Text>
-      <Pressable onPress={() => onChange(Math.min(max, value + 1))} style={styles.stepBtn} accessibilityLabel="Later">
-        <Ionicons name="add" size={18} color={C.ink} />
-      </Pressable>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <Text style={[T.body, T.number, { color: c.secondary }]}>{String(value).padStart(2, '0')}:00</Text>
+      <View style={{ flexDirection: 'row', backgroundColor: c.fill, borderRadius: 8 }}>
+        {btn('remove', value - 1, value <= min)}
+        <View style={{ width: StyleSheet.hairlineWidth, backgroundColor: c.separator, marginVertical: 6 }} />
+        {btn('add', value + 1, value >= max)}
+      </View>
     </View>
   );
 }
@@ -32,10 +43,13 @@ export function MeScreen({
   reminders,
   start,
   end,
+  appearance,
+  accentKey,
+  onAppearance,
+  onAccent,
   onReminders,
   onWindow,
   onLogout,
-  onTheme,
 }: {
   me: Me;
   code: string;
@@ -44,16 +58,19 @@ export function MeScreen({
   reminders: boolean;
   start: number;
   end: number;
+  appearance: Appearance;
+  accentKey: AccentKey;
+  onAppearance: (a: Appearance) => void;
+  onAccent: (k: AccentKey) => void;
   onReminders: (on: boolean) => void;
   onWindow: (start: number, end: number) => void;
   onLogout: () => void;
-  onTheme: (k: ThemeKey) => void;
 }) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
+  const c = useTheme();
+  const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const mine = snaps.filter((s) => s.authorId === me.id);
-  const reactionsGot = mine.reduce((n, s) => n + s.reactions.filter((r) => !r.startsWith(me.id + ':')).length, 0);
+  const mine = snaps.filter((x) => x.authorId === me.id);
+  const reactionsGot = mine.reduce((n, x) => n + x.reactions.filter((r) => !r.startsWith(me.id + ':')).length, 0);
   const [pinOpen, setPinOpen] = useState(false);
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -61,7 +78,7 @@ export function MeScreen({
   const [busy, setBusy] = useState(false);
 
   const savePin = async () => {
-    if (newPin.length < 4) return setPinMsg('The new PIN needs at least 4 digits.');
+    if (newPin.length < 4) return setPinMsg('Use at least 4 digits. 6 is safer.');
     setBusy(true);
     setPinMsg('');
     try {
@@ -76,167 +93,133 @@ export function MeScreen({
     }
   };
 
+  const confirmLogout = () => {
+    if (Platform.OS === 'web' ? window.confirm('Log out of StormSnap?') : true) onLogout();
+  };
+
   return (
-    <ScrollView contentContainerStyle={[styles.wrap, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 120 }]}>
-      <View style={{ alignItems: 'center' }}>
-        <Avatar id={me.id} name={me.name} size={96} ring />
-        <Text style={styles.name}>{me.name}</Text>
-        <Text style={styles.sub}>Family code {code.toUpperCase()}</Text>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={[s.wrap, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 40 }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <LargeTitle title="Me" />
+
+      <View style={s.profile}>
+        <Avatar id={me.id} name={me.name} size={64} />
+        <View style={{ flex: 1 }}>
+          <Text style={[T.title2, { color: c.label }]}>{me.name}</Text>
+          <Text style={[T.subhead, { color: c.secondary }]}>Family {code.toUpperCase()}</Text>
+        </View>
       </View>
 
-      <Glass style={styles.stats} strong>
+      <View style={s.stats}>
         {[
           [mine.length, 'Snaps this week'],
-          [kept.length, 'Kept forever'],
+          [kept.length, 'Kept'],
           [reactionsGot, 'Reactions'],
         ].map(([n, l], i) => (
-          <View key={String(l)} style={[styles.stat, i > 0 && styles.statBorder]}>
-            <Text style={styles.statNum}>{n}</Text>
-            <Text style={styles.statLabel}>{l}</Text>
+          <View key={String(l)} style={[s.stat, i > 0 && s.statLine]}>
+            <Text style={[T.title2, T.number, { color: c.label }]}>{n}</Text>
+            <Text style={[T.caption, { color: c.secondary }]}>{l}</Text>
           </View>
         ))}
-      </Glass>
-
-      <Text style={styles.section}>
-        <Ionicons name="star" size={16} color={C.accentDeep} /> Kept forever
-      </Text>
-      {kept.length === 0 ? (
-        <Text style={styles.hint}>Tap the star on any snap to keep it after the 7 days.</Text>
-      ) : (
-        <View style={styles.grid}>
-          {kept.map((s) => (
-            <View key={s.$id} style={styles.tile}>
-              <SnapImage fileId={s.backId} style={StyleSheet.absoluteFill as never} />
-              <View style={styles.tileInset}>
-                <SnapImage fileId={s.frontId} style={StyleSheet.absoluteFill as never} />
-              </View>
-              <Text style={styles.tileLabel}>
-                {s.authorName} · {s.day.slice(8)}/{s.day.slice(5, 7)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <Text style={styles.section}>Colours</Text>
-      <View style={styles.themes}>
-        {THEME_ORDER.map((k) => {
-          const th = THEMES[k];
-          const on = C.key === k;
-          return (
-            <Pressable key={k} onPress={() => onTheme(k)} style={styles.themeItem} accessibilityLabel={`${th.name} colours`}>
-              <LinearGradient colors={th.bg} style={[styles.swatch, on && { borderColor: C.accent, borderWidth: 3 }]}>
-                <View style={[styles.swatchDot, { backgroundColor: th.accent }]} />
-              </LinearGradient>
-              <Text style={[styles.themeName, on && { color: C.ink, fontFamily: F.semibold }]}>{th.name}</Text>
-            </Pressable>
-          );
-        })}
       </View>
 
-      <Text style={styles.section}>Settings</Text>
-      <Glass style={styles.settings} strong>
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.rowTitle}>Hourly reminders</Text>
-            <Text style={styles.rowSub}>
-              {remindersSupported ? 'A gentle nudge every hour. Skipping is fine.' : 'Reminders only work in the Android app.'}
-            </Text>
-          </View>
-          <Switch
-            value={reminders && remindersSupported}
-            disabled={!remindersSupported}
-            onValueChange={onReminders}
-            trackColor={{ true: C.accent, false: C.empty }}
-            thumbColor={C.white}
-          />
+      <Section title="Appearance" padded>
+        <Segmented<Appearance>
+          items={[
+            { key: 'auto', label: 'Automatic' },
+            { key: 'light', label: 'Light' },
+            { key: 'dark', label: 'Dark' },
+          ]}
+          value={appearance}
+          onChange={onAppearance}
+        />
+        <Text style={[T.footnote, { color: c.secondary, marginTop: 16, marginBottom: 10 }]}>Accent colour</Text>
+        <View style={s.accents}>
+          {ACCENT_ORDER.map((k) => {
+            const on = k === accentKey;
+            const col = ACCENTS[k][c.dark ? 'dark' : 'light'];
+            return (
+              <Pressable
+                key={k}
+                onPress={() => {
+                  tapHaptic();
+                  onAccent(k);
+                }}
+                accessibilityLabel={`${ACCENTS[k].name} accent`}
+                accessibilityState={{ selected: on }}
+                style={[s.accentRing, { borderColor: on ? col : 'transparent' }]}
+              >
+                <View style={[s.accentDot, { backgroundColor: col }]}>{on && <Ionicons name="checkmark" size={16} color={k === 'graphite' && c.dark ? '#000' : '#FFF'} />}</View>
+              </Pressable>
+            );
+          })}
         </View>
-        <View style={styles.divider} />
-        <View style={styles.row}>
-          <Text style={[styles.rowTitle, { flex: 1 }]}>From</Text>
-          <Stepper value={start} min={5} max={end} onChange={(v) => onWindow(v, end)} />
-        </View>
-        <View style={styles.row}>
-          <Text style={[styles.rowTitle, { flex: 1 }]}>Until</Text>
-          <Stepper value={end} min={start} max={23} onChange={(v) => onWindow(start, v)} />
-        </View>
-        <View style={styles.divider} />
-        <Pressable style={styles.row} onPress={() => setPinOpen((o) => !o)}>
-          <Text style={[styles.rowTitle, { flex: 1 }]}>Change PIN</Text>
-          <Ionicons name={pinOpen ? 'chevron-up' : 'chevron-down'} size={18} color={C.muted} />
-        </Pressable>
+      </Section>
+
+      <Section
+        title="Reminders"
+        footer={remindersSupported ? 'A gentle nudge at the start of every hour. Snapping is always optional.' : 'Hourly reminders work in the Android app.'}
+      >
+        <Row
+          icon="notifications"
+          iconBg="#FF3B30"
+          title="Hourly reminders"
+          right={
+            <Switch
+              value={reminders && remindersSupported}
+              disabled={!remindersSupported}
+              onValueChange={onReminders}
+              trackColor={{ true: '#34C759', false: c.fill }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={c.fill}
+            />
+          }
+        />
+        <Row icon="sunny" iconBg="#FF9500" title="From" right={<Stepper value={start} min={5} max={end} onChange={(v) => onWindow(v, end)} />} />
+        <Row icon="moon" iconBg="#5856D6" title="Until" right={<Stepper value={end} min={start} max={23} onChange={(v) => onWindow(start, v)} />} last />
+      </Section>
+
+      <Section title="Account">
+        <Row icon="key" iconBg="#8E8E93" title="Change PIN" onPress={() => setPinOpen((o) => !o)} chevron last={!pinOpen} />
         {pinOpen && (
-          <View style={{ gap: 8 }}>
-            <TextInput style={styles.input} placeholder="Current PIN" placeholderTextColor={C.muted} secureTextEntry keyboardType="number-pad" value={oldPin} onChangeText={(t) => setOldPin(t.replace(/\D/g, ''))} maxLength={6} />
-            <TextInput style={styles.input} placeholder="New PIN" placeholderTextColor={C.muted} secureTextEntry keyboardType="number-pad" value={newPin} onChangeText={(t) => setNewPin(t.replace(/\D/g, ''))} maxLength={6} />
-            {!!pinMsg && <Text style={styles.rowSub}>{pinMsg}</Text>}
-            <PillButton title="Save PIN" dark busy={busy} onPress={savePin} />
+          <View style={s.pinBox}>
+            <TextInput style={s.input} placeholder="Current PIN" placeholderTextColor={c.tertiary} secureTextEntry keyboardType="number-pad" value={oldPin} onChangeText={(t) => setOldPin(t.replace(/\D/g, ''))} maxLength={8} />
+            <TextInput style={s.input} placeholder="New PIN (6 digits is safer)" placeholderTextColor={c.tertiary} secureTextEntry keyboardType="number-pad" value={newPin} onChangeText={(t) => setNewPin(t.replace(/\D/g, ''))} maxLength={8} />
+            {!!pinMsg && <Text style={[T.footnote, { color: c.secondary }]}>{pinMsg}</Text>}
+            <Button title="Save PIN" busy={busy} onPress={savePin} />
           </View>
         )}
-      </Glass>
+      </Section>
 
-      <PillButton title="Log out" icon="log-out-outline" onPress={onLogout} style={{ marginTop: 16 }} />
+      <Section>
+        <Row title="Log out" destructive onPress={confirmLogout} last />
+      </Section>
+
+      <Text style={[T.footnote, { color: c.tertiary, textAlign: 'center', marginTop: 24 }]}>StormSnap · by Storm Gees</Text>
     </ScrollView>
   );
 }
 
-const makeStyles = (C: Theme) =>
+const makeStyles = (c: Theme) =>
   StyleSheet.create({
-  wrap: { paddingHorizontal: 18, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  name: { fontFamily: F.semibold, fontSize: 26, color: C.headline, marginTop: 12, textShadowColor: C.headlineShadow, textShadowRadius: 10 },
-  sub: { fontFamily: F.regular, fontSize: 13, color: C.inkSoft, marginTop: 2 },
-  stats: { flexDirection: 'row', marginTop: 20, paddingVertical: 16 },
-  stat: { flex: 1, alignItems: 'center' },
-  statBorder: { borderLeftWidth: 1, borderLeftColor: C.empty },
-  statNum: { fontFamily: F.semibold, fontSize: 20, color: C.ink },
-  statLabel: { fontFamily: F.regular, fontSize: 12, color: C.muted, marginTop: 2 },
-  section: { fontFamily: F.semibold, fontSize: 18, color: C.ink, marginTop: 26, marginBottom: 12 },
-  hint: { fontFamily: F.regular, fontSize: 14, color: C.muted },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: { width: '48%', aspectRatio: 3 / 4, borderRadius: 22, overflow: 'hidden' },
-  tileInset: { position: 'absolute', top: 8, left: 8, width: '32%', aspectRatio: 3 / 4, borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: C.white },
-  tileLabel: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-    color: C.white,
-    fontFamily: F.semibold,
-    fontSize: 12,
-    backgroundColor: 'rgba(20,17,19,0.4)',
-    borderRadius: 10,
-    paddingVertical: 4,
-    textAlign: 'center',
-    overflow: 'hidden',
-  },
-  settings: { padding: 16, gap: 12 },
-  themes: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  themeItem: { alignItems: 'center', gap: 6, width: 72 },
-  swatch: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: C.glassBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatchDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#FFFFFF' },
-  themeName: { fontFamily: F.medium, fontSize: 12, color: C.muted },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rowTitle: { fontFamily: F.medium, fontSize: 15, color: C.ink },
-  rowSub: { fontFamily: F.regular, fontSize: 12, color: C.muted, marginTop: 2 },
-  divider: { height: 1, backgroundColor: C.empty },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.field, alignItems: 'center', justifyContent: 'center' },
-  stepVal: { fontFamily: F.semibold, fontSize: 15, color: C.ink, minWidth: 34, textAlign: 'center' },
-  input: {
-    height: 48,
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    backgroundColor: C.field,
-    fontFamily: F.medium,
-    fontSize: 15,
-    color: C.ink,
-  },
-});
+    wrap: { paddingHorizontal: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
+    profile: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.card, borderRadius: 12, padding: 16, marginTop: 16 },
+    stats: { flexDirection: 'row', backgroundColor: c.card, borderRadius: 12, paddingVertical: 14, marginTop: 12 },
+    stat: { flex: 1, alignItems: 'center' },
+    statLine: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: c.separator },
+    accents: { flexDirection: 'row', justifyContent: 'space-between' },
+    accentRing: { width: 44, height: 44, borderRadius: 22, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
+    accentDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    pinBox: { padding: 16, paddingTop: 4, gap: 10 },
+    input: {
+      height: 44,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      backgroundColor: c.fill,
+      color: c.label,
+      ...T.body,
+    },
+  });

@@ -1,220 +1,217 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Avatar, Glass, PillButton, RoundButton, SnapImage } from '../components/ui';
-import { SnapCard } from '../components/SnapCard';
-import { F, useStyles, useTheme, type Theme } from '../theme';
+import { Avatar, Button, LargeTitle, PressScale, SnapTile, tapHaptic } from '../components/ui';
+import { TAB_BAR_HEIGHT } from '../components/TabBar';
+import { R, T, useStyles, useTheme, type Theme } from '../theme';
 import { dayKey, type Me, type Member, type Snap } from '../api';
 
-function dayLabel(day: string) {
-  const today = dayKey();
-  const y = new Date(Date.now() - 864e5);
-  if (day === today) return 'Today';
-  if (day === dayKey(y)) return 'Yesterday';
-  const [yy, mm, dd] = day.split('-').map(Number);
-  return new Date(yy, mm - 1, dd).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
-}
+const WEEKDAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const hhmm = (iso: string) => {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
 
 export function Home({
   me,
   members,
   snaps,
+  streak,
   refreshing,
-  remindersOn,
-  windowHours,
   onRefresh,
   onSnap,
-  onReact,
-  onKeep,
-  onDelete,
-  onBell,
+  onOpen,
+  onStreaks,
 }: {
   me: Me;
   members: Member[];
   snaps: Snap[];
+  streak: number;
   refreshing: boolean;
-  remindersOn: boolean;
-  windowHours: number;
   onRefresh: () => void;
   onSnap: () => void;
-  onReact: (s: Snap, e: string) => void;
-  onKeep: (s: Snap) => void;
-  onDelete: (s: Snap) => void;
-  onBell: () => void;
+  onOpen: (list: Snap[], id: string) => void;
+  onStreaks: () => void;
 }) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
+  const c = useTheme();
+  const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const [filter, setFilter] = useState<string | null>(null);
   const today = dayKey();
+  const [day, setDay] = useState(today);
 
-  const myHoursToday = useMemo(
-    () => new Set(snaps.filter((s) => s.authorId === me.id && s.day === today).map((s) => s.hour)).size,
-    [snaps, me.id, today],
-  );
+  const days = useMemo(() => {
+    const out: { key: string; date: Date }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      out.push({ key: dayKey(d), date: d });
+    }
+    return out;
+  }, []);
+  const daysWithSnaps = useMemo(() => new Set(snaps.map((x) => x.day)), [snaps]);
 
-  const latestBy = useMemo(() => {
-    const m = new Map<string, Snap>();
-    snaps.forEach((s) => !m.has(s.authorId) && m.set(s.authorId, s));
-    return m;
-  }, [snaps]);
+  const people = useMemo(() => {
+    const list = members.length ? members : [{ id: me.id, name: me.name }];
+    const sorted = [...list].sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : a.name.localeCompare(b.name)));
+    return sorted.map((m) => ({
+      ...m,
+      snaps: snaps.filter((x) => x.authorId === m.id && x.day === day).sort((a, b) => a.$createdAt.localeCompare(b.$createdAt)),
+    }));
+  }, [members, snaps, day, me]);
 
-  const groups = useMemo(() => {
-    const list = filter ? snaps.filter((s) => s.authorId === filter) : snaps;
-    const g: { day: string; items: Snap[] }[] = [];
-    list.forEach((s) => {
-      const last = g[g.length - 1];
-      if (last && last.day === s.day) last.items.push(s);
-      else g.push({ day: s.day, items: [s] });
-    });
-    return g;
-  }, [snaps, filter]);
-
-  const others = members.filter((m) => m.id !== me.id);
+  const active = people.filter((p) => p.snaps.length);
+  const quiet = people.filter((p) => !p.snaps.length);
+  const meSnapped = people.find((p) => p.id === me.id)?.snaps.length ?? 0;
+  const selected = (days.find((d) => d.key === day) ?? days[days.length - 1]).date;
+  const title = day === today ? 'Today' : selected.toLocaleDateString(undefined, { weekday: 'long' });
+  const subtitle = selected.toLocaleDateString(undefined, day === today ? { weekday: 'long', day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long' });
 
   return (
     <ScrollView
-      contentContainerStyle={[styles.wrap, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 120 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.accent} />}
+      style={{ flex: 1, backgroundColor: c.bg }}
+      contentContainerStyle={[s.wrap, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 40 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.secondary} />}
     >
-      <View style={styles.topRow}>
-        <Glass style={styles.mePill} radius={30}>
-          <Avatar id={me.id} name={me.name} size={44} ring />
-          <View>
-            <Text style={styles.meName}>{me.name}</Text>
-            <Text style={styles.meSub}>
-              Today: {myHoursToday} of {windowHours} hours
-            </Text>
-          </View>
-        </Glass>
-        <Glass style={styles.iconPair} radius={30}>
-          <RoundButton icon={remindersOn ? 'notifications-outline' : 'notifications-off-outline'} onPress={onBell} dot={remindersOn} label="Reminders" />
-          <RoundButton icon="refresh" onPress={onRefresh} label="Refresh" />
-        </Glass>
-      </View>
+      <LargeTitle
+        title={title}
+        subtitle={subtitle}
+        right={
+          <PressScale onPress={onStreaks} haptic accessibilityLabel={`Streak ${streak} hours`} style={s.streakChip}>
+            <Ionicons name="flame" size={16} color={streak > 0 ? c.fire : c.tertiary} />
+            <Text style={[T.headline, T.number, { color: c.label }]}>{streak}</Text>
+          </PressScale>
+        }
+      />
 
-      <Text style={styles.h1}>
-        Show your{'\n'}
-        <Text style={styles.h1Bold}>moments </Text>
-        <Text style={styles.h1Italic}>hourly</Text>
-      </Text>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stories}>
-        <Pressable onPress={onSnap}>
-          <Glass style={styles.story} radius={22} strong>
-            <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1, gap: 8 }}>
-              <View>
-                <Avatar id={me.id} name={me.name} size={50} ring />
-                <View style={styles.plus}>
-                  <Ionicons name="add" size={14} color={C.onAccent} />
-                </View>
-              </View>
-              <Text style={styles.storyName}>Your snap</Text>
-            </View>
-          </Glass>
-        </Pressable>
-        {others.map((m) => {
-          const s = latestBy.get(m.id);
-          const active = filter === m.id;
+      <View style={s.days}>
+        {days.map((d) => {
+          const on = d.key === day;
+          const isToday = d.key === today;
           return (
-            <Pressable key={m.id} onPress={() => setFilter(active ? null : m.id)}>
-              <View style={[styles.story, active && styles.storyActive]}>
-                {s ? <SnapImage fileId={s.backId} style={StyleSheet.absoluteFill as never} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: C.glass }]} />}
-                <View style={styles.storyAvatar}>
-                  <Avatar id={m.id} name={m.name} size={28} ring />
-                </View>
-                <View style={styles.storyLabel}>
-                  <Text style={styles.storyLabelText} numberOfLines={1}>
-                    {m.name}
-                  </Text>
-                </View>
+            <Pressable
+              key={d.key}
+              onPress={() => {
+                tapHaptic();
+                setDay(d.key);
+              }}
+              accessibilityLabel={d.date.toDateString()}
+              accessibilityState={{ selected: on }}
+              style={s.dayItem}
+            >
+              <Text style={[T.caption2, { color: c.secondary }]}>{WEEKDAY[d.date.getDay()]}</Text>
+              <View style={[s.dayNum, on && { backgroundColor: isToday ? c.accent : c.label }]}>
+                <Text style={[T.headline, T.number, { color: on ? (isToday ? c.onAccent : c.bg) : isToday ? c.accent : c.label }]}>
+                  {d.date.getDate()}
+                </Text>
               </View>
+              <View style={[s.dayDot, { backgroundColor: daysWithSnaps.has(d.key) ? c.secondary : 'transparent' }]} />
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
-      {filter && (
-        <Pressable onPress={() => setFilter(null)} style={styles.filterChip}>
-          <Text style={styles.filterText}>Only {members.find((m) => m.id === filter)?.name}</Text>
-          <Ionicons name="close" size={16} color={C.ink} />
-        </Pressable>
+      {day === today && meSnapped === 0 && (
+        <View style={s.prompt}>
+          <View style={[s.promptIcon, { backgroundColor: c.accentTint }]}>
+            <Ionicons name="camera" size={26} color={c.accent} />
+          </View>
+          <Text style={[T.headline, { color: c.label, marginTop: 12 }]}>What are you up to?</Text>
+          <Text style={[T.subhead, { color: c.secondary, textAlign: 'center', marginTop: 4 }]}>
+            Back camera, then a quick selfie. Skipping is always fine.
+          </Text>
+          <Button title="Take a snap" icon="camera" onPress={onSnap} style={{ marginTop: 16, alignSelf: 'stretch' }} />
+        </View>
       )}
 
-      {groups.length === 0 ? (
-        <Glass style={styles.empty} strong>
-          <Ionicons name="sunny-outline" size={34} color={C.accent} />
-          <Text style={styles.emptyTitle}>No snaps yet</Text>
-          <Text style={styles.emptyText}>Be the first. Back camera, then a quick selfie.</Text>
-          <PillButton title="Take a snap" dark icon="camera" onPress={onSnap} style={{ marginTop: 14 }} />
-        </Glass>
-      ) : (
-        groups.map((g) => (
-          <View key={g.day}>
-            <Text style={styles.day}>{dayLabel(g.day)}</Text>
-            {g.items.map((s) => (
-              <SnapCard
-                key={s.$id}
-                snap={s}
-                meId={me.id}
-                onReact={(e) => onReact(s, e)}
-                onKeep={() => onKeep(s)}
-                onDelete={() => onDelete(s)}
-              />
-            ))}
+      {active.map((p) => {
+        const lastCaption = p.snaps.filter((x) => x.caption).slice(-1)[0]?.caption;
+        return (
+          <View key={p.id} style={s.person}>
+            <View style={s.personHead}>
+              <Avatar id={p.id} name={p.name} size={32} />
+              <Text style={[T.headline, { color: c.label, flex: 1 }]}>{p.id === me.id ? 'You' : p.name}</Text>
+              <Text style={[T.footnote, { color: c.secondary }]}>
+                {p.snaps.length} snap{p.snaps.length === 1 ? '' : 's'} · {hhmm(p.snaps[p.snaps.length - 1].$createdAt)}
+              </Text>
+            </View>
+            <FlatList
+              horizontal
+              data={p.snaps}
+              keyExtractor={(x) => x.$id}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}
+              style={{ marginHorizontal: -16 }}
+              renderItem={({ item }) => (
+                <SnapTile
+                  back={item.backId}
+                  front={item.frontId}
+                  width={136}
+                  label={hhmm(item.$createdAt)}
+                  badge={
+                    item.reactions.length ? (
+                      <View style={s.reactBadge}>
+                        <Text style={[T.caption2, { color: '#FFFFFF' }]}>
+                          {item.reactions[item.reactions.length - 1].split(':')[1]} {item.reactions.length}
+                        </Text>
+                      </View>
+                    ) : undefined
+                  }
+                  onPress={() => onOpen(p.snaps, item.$id)}
+                />
+              )}
+            />
+            {!!lastCaption && (
+              <Text style={[T.subhead, { color: c.secondary, marginTop: 8 }]} numberOfLines={2}>
+                “{lastCaption}”
+              </Text>
+            )}
           </View>
-        ))
+        );
+      })}
+
+      {active.length === 0 && day !== today && (
+        <Text style={[T.subhead, { color: c.secondary, textAlign: 'center', marginTop: 40 }]}>No snaps on this day.</Text>
+      )}
+
+      {quiet.length > 0 && (active.length > 0 || day === today) && (
+        <View style={s.quiet}>
+          {quiet.map((p) => (
+            <View key={p.id} style={s.quietRow}>
+              <Avatar id={p.id} name={p.name} size={24} />
+              <Text style={[T.subhead, { color: c.secondary }]}>
+                {p.id === me.id ? 'You' : p.name} {day === today ? "haven't snapped yet" : 'took a break'}
+              </Text>
+            </View>
+          ))}
+        </View>
       )}
     </ScrollView>
   );
 }
 
-const makeStyles = (C: Theme) =>
+const makeStyles = (c: Theme) =>
   StyleSheet.create({
-  wrap: { paddingHorizontal: 18, maxWidth: 560, width: '100%', alignSelf: 'center' },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  mePill: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 6, paddingRight: 18, flexShrink: 1 },
-  meName: { fontFamily: F.semibold, fontSize: 15, color: C.ink },
-  meSub: { fontFamily: F.regular, fontSize: 12, color: C.muted },
-  iconPair: { flexDirection: 'row', gap: 6, padding: 6 },
-  h1: { fontFamily: F.medium, fontSize: 36, lineHeight: 42, color: C.headline, marginTop: 26, marginBottom: 20, textShadowColor: C.headlineShadow, textShadowRadius: 10 },
-  h1Bold: { fontFamily: F.semibold },
-  h1Italic: { fontFamily: F.lightItalic },
-  stories: { gap: 10, paddingBottom: 18, paddingRight: 8 },
-  story: { width: 96, height: 112, borderRadius: 22, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
-  storyActive: { borderColor: C.ink },
-  storyName: { fontFamily: F.medium, fontSize: 12, color: C.ink },
-  plus: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: C.white,
-  },
-  storyAvatar: { position: 'absolute', top: 6, left: 6 },
-  storyLabel: { position: 'absolute', left: 6, right: 6, bottom: 6, backgroundColor: 'rgba(20,17,19,0.4)', borderRadius: 10, paddingVertical: 3, paddingHorizontal: 6 },
-  storyLabelText: { color: C.white, fontFamily: F.semibold, fontSize: 11, textAlign: 'center' },
-  filterChip: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: C.field,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    marginBottom: 12,
-  },
-  filterText: { fontFamily: F.medium, fontSize: 13, color: C.ink },
-  day: { fontFamily: F.semibold, fontSize: 18, color: C.ink, marginBottom: 12, marginTop: 4 },
-  empty: { padding: 28, alignItems: 'center' },
-  emptyTitle: { fontFamily: F.semibold, fontSize: 18, color: C.ink, marginTop: 10 },
-  emptyText: { fontFamily: F.regular, fontSize: 14, color: C.muted, textAlign: 'center', marginTop: 4 },
-});
+    wrap: { paddingHorizontal: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
+    streakChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      height: 34,
+      paddingHorizontal: 12,
+      borderRadius: 17,
+      backgroundColor: c.card,
+      marginBottom: 6,
+    },
+    days: { flexDirection: 'row', marginTop: 14, marginBottom: 6 },
+    dayItem: { flex: 1, alignItems: 'center', gap: 4 },
+    dayNum: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    dayDot: { width: 5, height: 5, borderRadius: 3 },
+    prompt: { backgroundColor: c.card, borderRadius: R.sheet, padding: 20, alignItems: 'center', marginTop: 18 },
+    promptIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    person: { marginTop: 26 },
+    personHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+    reactBadge: { backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 },
+    quiet: { marginTop: 28, gap: 10 },
+    quietRow: { flexDirection: 'row', alignItems: 'center', gap: 10, opacity: 0.8 },
+  });

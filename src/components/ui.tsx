@@ -1,200 +1,312 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ImageStyle, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Image,
+  ImageStyle,
+  Platform,
+  Pressable,
+  PressableProps,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { F, colorFor, useTheme } from '../theme';
+import { R, T, colorFor, useTheme } from '../theme';
 import { photo } from '../api';
 
-export function Background({ children }: { children: React.ReactNode }) {
-  const t = useTheme();
-  return (
-    <LinearGradient colors={t.bg} locations={[0, 0.55, 1]} style={{ flex: 1 }}>
-      <View style={[styles.blob, { top: -80, right: -60, backgroundColor: t.blobA }]} />
-      <View style={[styles.blob, { top: 320, left: -120, backgroundColor: t.blobB }]} />
-      {children}
-    </LinearGradient>
-  );
-}
+export type IconName = keyof typeof Ionicons.glyphMap;
 
-export function Glass({
+let reduceMotion = false;
+AccessibilityInfo.isReduceMotionEnabled?.().then((v) => (reduceMotion = v)).catch(() => {});
+AccessibilityInfo.addEventListener?.('reduceMotionChanged', (v) => (reduceMotion = v));
+
+export const tapHaptic = () => {
+  if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
+};
+
+/** Pressable that springs down a little when touched (instant fade when Reduce Motion is on). */
+export function PressScale({
   children,
   style,
-  strong,
-  radius = 28,
-}: {
-  children?: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
-  strong?: boolean;
-  radius?: number;
-}) {
-  const t = useTheme();
-  return (
-    <View style={[{ borderRadius: radius, overflow: 'hidden' }, style]}>
-      <BlurView intensity={30} tint={t.dark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          {
-            backgroundColor: strong ? t.glassStrong : t.glass,
-            borderRadius: radius,
-            borderWidth: 1,
-            borderColor: t.glassBorder,
-          },
-        ]}
-      />
-      {children}
-    </View>
-  );
-}
-
-export function Avatar({ id, name, size = 40, ring }: { id: string; name: string; size?: number; ring?: boolean }) {
-  const t = useTheme();
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: colorFor(id),
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: ring ? 3 : 0,
-        borderColor: t.dark ? 'rgba(255,255,255,0.85)' : '#FFFFFF',
-      }}
-    >
-      <Text style={{ color: '#FFFFFF', fontFamily: F.bold, fontSize: size * 0.42 }}>{(name || '?').charAt(0).toUpperCase()}</Text>
-    </View>
-  );
-}
-
-export function RoundButton({
-  icon,
+  scaleTo = 0.96,
+  haptic,
   onPress,
-  dark,
-  size = 46,
-  label,
-  dot,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  onPress?: () => void;
-  dark?: boolean;
-  size?: number;
-  label?: string;
-  dot?: boolean;
-}) {
-  const t = useTheme();
+  ...rest
+}: PressableProps & { style?: StyleProp<ViewStyle>; scaleTo?: number; haptic?: boolean; children?: React.ReactNode }) {
+  const v = useRef(new Animated.Value(1)).current;
+  const to = (value: number, pressIn: boolean) => {
+    if (reduceMotion) {
+      Animated.timing(v, { toValue: pressIn ? 0.98 : 1, duration: 80, useNativeDriver: Platform.OS !== 'web' }).start();
+      return;
+    }
+    Animated.spring(v, {
+      toValue: value,
+      useNativeDriver: Platform.OS !== 'web',
+      speed: pressIn ? 40 : 18,
+      bounciness: pressIn ? 0 : 6,
+    }).start();
+  };
   return (
     <Pressable
-      onPress={onPress}
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: dark ? 'rgba(20,17,19,0.35)' : t.field,
-          borderWidth: 1,
-          borderColor: dark ? 'rgba(255,255,255,0.35)' : t.glassBorder,
-          transform: [{ scale: pressed ? 0.94 : 1 }],
-        },
-      ]}
+      {...rest}
+      onPressIn={() => to(scaleTo, true)}
+      onPressOut={() => to(1, false)}
+      onPress={(e) => {
+        if (haptic) tapHaptic();
+        onPress?.(e);
+      }}
     >
-      <Ionicons name={icon} size={size * 0.45} color={dark ? '#FFFFFF' : t.ink} />
-      {dot && <View style={[styles.dot, { backgroundColor: t.accent }]} />}
+      <Animated.View style={[style, { transform: [{ scale: v }] }]}>{children}</Animated.View>
     </Pressable>
   );
 }
 
-export function PillButton({
+export function Avatar({ id, name, size = 40 }: { id: string; name: string; size?: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colorFor(id), alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={[T.headline, { color: '#FFFFFF', fontSize: size * 0.42, lineHeight: size * 0.5 }]}>{(name || '?').charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
+
+/** Large title header like iOS navigation bars. */
+export function LargeTitle({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
+  const c = useTheme();
+  return (
+    <View style={styles.titleRow}>
+      <View style={{ flex: 1 }}>
+        {!!subtitle && <Text style={[T.footnote, { color: c.secondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4 }]}>{subtitle}</Text>}
+        <Text style={[T.largeTitle, { color: c.label }]}>{title}</Text>
+      </View>
+      {right}
+    </View>
+  );
+}
+
+/** Inset grouped section. */
+export function Section({
+  title,
+  footer,
+  children,
+  style,
+  padded,
+}: {
+  title?: string;
+  footer?: string;
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+  padded?: boolean;
+}) {
+  const c = useTheme();
+  return (
+    <View style={[{ marginTop: 28 }, style]}>
+      {!!title && <Text style={[T.footnote, styles.sectionTitle, { color: c.secondary }]}>{title.toUpperCase()}</Text>}
+      <View style={[{ backgroundColor: c.card, borderRadius: R.card, overflow: 'hidden' }, padded && { padding: 16 }]}>{children}</View>
+      {!!footer && <Text style={[T.footnote, styles.sectionFooter, { color: c.secondary }]}>{footer}</Text>}
+    </View>
+  );
+}
+
+export function Row({
+  icon,
+  iconBg,
+  title,
+  subtitle,
+  value,
+  right,
+  onPress,
+  destructive,
+  chevron,
+  last,
+}: {
+  icon?: IconName;
+  iconBg?: string;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  right?: React.ReactNode;
+  onPress?: () => void;
+  destructive?: boolean;
+  chevron?: boolean;
+  last?: boolean;
+}) {
+  const c = useTheme();
+  const body = (
+    <View style={styles.row}>
+      {icon && (
+        <View style={[styles.rowIcon, { backgroundColor: iconBg ?? c.accent }]}>
+          <Ionicons name={icon} size={17} color="#FFFFFF" />
+        </View>
+      )}
+      <View style={[styles.rowMain, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.separator }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[T.body, { color: destructive ? c.red : c.label }]}>{title}</Text>
+          {!!subtitle && <Text style={[T.footnote, { color: c.secondary, marginTop: 1 }]}>{subtitle}</Text>}
+        </View>
+        {!!value && <Text style={[T.body, { color: c.secondary }]}>{value}</Text>}
+        {right}
+        {chevron && <Ionicons name="chevron-forward" size={17} color={c.tertiary} style={{ marginLeft: 6 }} />}
+      </View>
+    </View>
+  );
+  if (!onPress) return body;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => ({ backgroundColor: pressed ? c.fill : 'transparent' })}>
+      {body}
+    </Pressable>
+  );
+}
+
+export function Button({
   title,
   onPress,
-  dark,
-  accent,
+  kind = 'filled',
   icon,
   busy,
   style,
 }: {
   title: string;
   onPress?: () => void;
-  dark?: boolean;
-  accent?: boolean;
-  icon?: keyof typeof Ionicons.glyphMap;
+  kind?: 'filled' | 'tinted' | 'gray' | 'plain';
+  icon?: IconName;
   busy?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const t = useTheme();
-  const bg = accent ? t.accent : dark ? t.navBg : t.field;
-  const fg = accent ? t.onAccent : dark ? t.navIcon : t.ink;
+  const c = useTheme();
+  const bg = kind === 'filled' ? c.accent : kind === 'tinted' ? c.accentTint : kind === 'gray' ? c.fill : 'transparent';
+  const fg = kind === 'filled' ? c.onAccent : kind === 'gray' ? c.label : c.accent;
   return (
-    <Pressable
-      onPress={busy ? undefined : onPress}
-      style={({ pressed }) => [
-        styles.pill,
-        { backgroundColor: bg },
-        !dark && !accent && { borderWidth: 1, borderColor: t.glassBorder },
-        { transform: [{ scale: pressed ? 0.97 : 1 }], opacity: busy ? 0.7 : 1 },
-        style,
-      ]}
-    >
+    <PressScale onPress={busy ? undefined : onPress} haptic style={[styles.button, { backgroundColor: bg, opacity: busy ? 0.7 : 1 }, style]}>
       {busy ? (
         <ActivityIndicator color={fg} />
       ) : (
         <>
-          {icon && <Ionicons name={icon} size={18} color={fg} />}
-          <Text style={{ fontFamily: F.semibold, fontSize: 15, color: fg }}>{title}</Text>
+          {icon && <Ionicons name={icon} size={19} color={fg} />}
+          <Text style={[T.headline, { color: fg }]}>{title}</Text>
         </>
       )}
-    </Pressable>
+    </PressScale>
+  );
+}
+
+export function Segmented<K extends string>({ items, value, onChange }: { items: { key: K; label: string }[]; value: K; onChange: (k: K) => void }) {
+  const c = useTheme();
+  return (
+    <View style={[styles.seg, { backgroundColor: c.fill }]}>
+      {items.map((it) => {
+        const on = it.key === value;
+        return (
+          <Pressable
+            key={it.key}
+            onPress={() => {
+              tapHaptic();
+              onChange(it.key);
+            }}
+            style={[styles.segItem, on && { backgroundColor: c.dark ? '#636366' : '#FFFFFF', ...styles.segShadow }]}
+          >
+            <Text style={[T.footnote, { color: c.label, fontWeight: on ? '600' : '500' }]}>{it.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
 /** Loads a private photo from Appwrite and shows it. */
 export function SnapImage({ fileId, style }: { fileId: string; style?: StyleProp<ImageStyle> }) {
-  const t = useTheme();
+  const c = useTheme();
   const [uri, setUri] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const fade = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     let alive = true;
     setFailed(false);
     photo(fileId)
-      .then((u) => alive && setUri(u))
+      .then((u) => {
+        if (!alive) return;
+        setUri(u);
+        Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== 'web' }).start();
+      })
       .catch(() => alive && setFailed(true));
     return () => {
       alive = false;
     };
-  }, [fileId]);
-  if (!uri)
-    return (
-      <View style={[style as StyleProp<ViewStyle>, styles.imgPlaceholder, { backgroundColor: t.glass }]}>
-        {failed ? <Ionicons name="image-outline" size={22} color={t.muted} /> : <ActivityIndicator color={t.accent} />}
+  }, [fileId, fade]);
+  return (
+    <View style={[style as StyleProp<ViewStyle>, { backgroundColor: c.fill, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }]}>
+      {failed && <Ionicons name="image-outline" size={22} color={c.tertiary} />}
+      {uri && <Animated.Image source={{ uri }} style={[StyleSheet.absoluteFill, { opacity: fade }]} resizeMode="cover" />}
+    </View>
+  );
+}
+
+/** A snap as a tile: back photo with the selfie in the corner. */
+export function SnapTile({
+  back,
+  front,
+  width,
+  label,
+  badge,
+  onPress,
+}: {
+  back: string;
+  front: string;
+  width: number;
+  label?: string;
+  badge?: React.ReactNode;
+  onPress?: () => void;
+}) {
+  const h = (width * 4) / 3;
+  const inset = Math.round(width * 0.3);
+  return (
+    <PressScale onPress={onPress} scaleTo={0.97} style={{ width, height: h, borderRadius: R.tile, overflow: 'hidden' }}>
+      <SnapImage fileId={back} style={{ width, height: h }} />
+      <View style={[styles.tileInset, { width: inset, height: (inset * 4) / 3 }]}>
+        <SnapImage fileId={front} style={StyleSheet.absoluteFill as ImageStyle} />
       </View>
-    );
-  return <Image source={{ uri }} style={style} resizeMode="cover" />;
+      {!!label && (
+        <View style={styles.tileLabel}>
+          <Text style={[T.caption2, { color: '#FFFFFF', fontWeight: '600' }]}>{label}</Text>
+        </View>
+      )}
+      {badge && <View style={styles.tileBadge}>{badge}</View>}
+    </PressScale>
+  );
 }
 
 const styles = StyleSheet.create({
-  blob: { position: 'absolute', width: 320, height: 320, borderRadius: 160 },
-  pill: {
-    height: 50,
-    borderRadius: 25,
-    paddingHorizontal: 22,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dot: {
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingTop: 8, paddingBottom: 4 },
+  sectionTitle: { marginLeft: 16, marginBottom: 7 },
+  sectionFooter: { marginHorizontal: 16, marginTop: 7 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, minHeight: 44 },
+  rowIcon: { width: 29, height: 29, borderRadius: 7, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 11, paddingRight: 16, gap: 8, minHeight: 44 },
+  button: { height: 50, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 20 },
+  seg: { flexDirection: 'row', borderRadius: 9, padding: 2 },
+  segItem: { flex: 1, height: 30, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  segShadow: { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  tileInset: {
     position: 'absolute',
-    top: 11,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.5,
+    top: 8,
+    left: 8,
+    borderRadius: 9,
+    overflow: 'hidden',
+    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  imgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  tileLabel: {
+    position: 'absolute',
+    left: 8,
+    bottom: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  tileBadge: { position: 'absolute', right: 8, bottom: 8 },
 });

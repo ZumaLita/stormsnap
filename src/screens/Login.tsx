@@ -1,38 +1,25 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Background, Glass, PillButton } from '../components/ui';
-import { F, useStyles, useTheme, type Theme } from '../theme';
+import { Button } from '../components/ui';
+import { R, T, useStyles, useTheme, type Theme } from '../theme';
 import { login, niceError, type Me } from '../api';
 
-function Field({
-  icon,
-  ...props
-}: { icon: keyof typeof Ionicons.glyphMap } & React.ComponentProps<typeof TextInput>) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
-  return (
-    <View style={styles.field}>
-      <Ionicons name={icon} size={18} color={C.muted} />
-      <TextInput placeholderTextColor={C.muted} style={styles.input} {...props} />
-    </View>
-  );
-}
-
 export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
+  const c = useTheme();
+  const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const nameRef = useRef<React.ElementRef<typeof TextInput>>(null);
+  const pinRef = useRef<React.ElementRef<typeof TextInput>>(null);
 
   const submit = async () => {
     if (!code.trim() || !name.trim() || pin.length < 4) {
-      setError('Fill in the family code, your name and your 4-digit PIN.');
+      setError('Fill in the family code, your name and your PIN.');
       return;
     }
     setBusy(true);
@@ -47,73 +34,83 @@ export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
     }
   };
 
-  return (
-    <Background>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={[styles.wrap, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.logo}>
-            <Ionicons name="camera" size={30} color={C.onAccent} />
-          </View>
-          <Text style={styles.h1}>
-            Your family,{'\n'}
-            <Text style={styles.h1Italic}>every hour</Text>
-          </Text>
-          <Text style={styles.sub}>Snap what you're doing with both cameras. Skipping is always fine.</Text>
+  const field = (label: string, el: React.ReactNode, last?: boolean) => (
+    <View style={[s.field, !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.separator }]}>
+      <Text style={[T.body, { color: c.label, width: 96 }]}>{label}</Text>
+      {el}
+    </View>
+  );
 
-          <Glass style={styles.card} strong>
-            <Field icon="key-outline" placeholder="Family code" autoCapitalize="characters" value={code} onChangeText={setCode} />
-            <Field icon="person-outline" placeholder="Your name" autoCapitalize="words" value={name} onChangeText={setName} />
-            <Field
-              icon="lock-closed-outline"
-              placeholder="PIN"
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
+      <ScrollView contentContainerStyle={[s.wrap, { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
+        <Image source={require('../../assets/icon.png')} style={s.icon} />
+        <Text style={[T.largeTitle, { color: c.label, textAlign: 'center', marginTop: 20 }]}>StormSnap</Text>
+        <Text style={[T.body, { color: c.secondary, textAlign: 'center', marginTop: 6, marginBottom: 32 }]}>
+          Your family, every hour.{'\n'}Back camera and selfie, together.
+        </Text>
+
+        <View style={s.group}>
+          {field(
+            'Family',
+            <TextInput
+              style={s.input}
+              placeholder="GEES-0000"
+              placeholderTextColor={c.tertiary}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="next"
+              value={code}
+              onChangeText={setCode}
+              onSubmitEditing={() => nameRef.current?.focus()}
+            />,
+          )}
+          {field(
+            'Name',
+            <TextInput
+              ref={nameRef}
+              style={s.input}
+              placeholder="Your name"
+              placeholderTextColor={c.tertiary}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="next"
+              value={name}
+              onChangeText={setName}
+              onSubmitEditing={() => pinRef.current?.focus()}
+            />,
+          )}
+          {field(
+            'PIN',
+            <TextInput
+              ref={pinRef}
+              style={s.input}
+              placeholder="••••"
+              placeholderTextColor={c.tertiary}
               keyboardType="number-pad"
               secureTextEntry
-              maxLength={6}
+              maxLength={8}
               value={pin}
               onChangeText={(t) => setPin(t.replace(/\D/g, ''))}
               onSubmitEditing={submit}
-            />
-            {!!error && <Text style={styles.error}>{error}</Text>}
-            <PillButton title="Join the family" dark icon="arrow-forward" busy={busy} onPress={submit} style={{ marginTop: 6 }} />
-          </Glass>
-          <Text style={styles.foot}>No email needed. Ask Storm for your code and PIN.</Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </Background>
+            />,
+            true,
+          )}
+        </View>
+        {!!error && <Text style={[T.footnote, { color: c.red, marginTop: 10, marginHorizontal: 16 }]}>{error}</Text>}
+
+        <Button title="Continue" busy={busy} onPress={submit} style={{ marginTop: 24 }} />
+        <Text style={[T.footnote, { color: c.secondary, textAlign: 'center', marginTop: 16 }]}>No email needed. Ask Storm for your code and PIN.</Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-const makeStyles = (C: Theme) =>
+const makeStyles = (c: Theme) =>
   StyleSheet.create({
-  wrap: { paddingHorizontal: 22, maxWidth: 480, width: '100%', alignSelf: 'center' },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: C.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
-  },
-  h1: { fontFamily: F.semibold, fontSize: 40, lineHeight: 46, color: C.headline, textShadowColor: C.headlineShadow, textShadowRadius: 12 },
-  h1Italic: { fontFamily: F.lightItalic, color: C.headline },
-  sub: { fontFamily: F.regular, fontSize: 15, lineHeight: 22, color: C.inkSoft, marginTop: 12, marginBottom: 28 },
-  card: { padding: 16, gap: 10 },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    height: 54,
-    borderRadius: 27,
-    paddingHorizontal: 18,
-    backgroundColor: C.field,
-    borderWidth: 1,
-    borderColor: C.glassBorder,
-  },
-  input: { flex: 1, height: '100%', fontFamily: F.medium, fontSize: 16, color: C.ink, outlineStyle: 'none' } as never,
-  error: { fontFamily: F.medium, fontSize: 13, color: C.danger, paddingHorizontal: 6 },
-  foot: { fontFamily: F.regular, fontSize: 13, color: C.muted, textAlign: 'center', marginTop: 18 },
-});
+    wrap: { paddingHorizontal: 20, maxWidth: 440, width: '100%', alignSelf: 'center' },
+    icon: { width: 88, height: 88, borderRadius: 20, alignSelf: 'center' },
+    group: { backgroundColor: c.card, borderRadius: R.card, overflow: 'hidden' },
+    field: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, minHeight: 50 },
+    input: { flex: 1, height: 50, paddingRight: 16, color: c.label, ...T.body, ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) } as never,
+  });

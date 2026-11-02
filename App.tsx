@@ -1,23 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, AppState, useColorScheme, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  useFonts,
-  Figtree_300Light_Italic,
-  Figtree_400Regular,
-  Figtree_500Medium,
-  Figtree_500Medium_Italic,
-  Figtree_600SemiBold,
-  Figtree_700Bold,
-  Figtree_700Bold_Italic,
-  Figtree_800ExtraBold,
-} from '@expo-google-fonts/figtree';
-import { Background } from './src/components/ui';
-import { PillNav, type Tab } from './src/components/PillNav';
+import { TabBar, type Tab } from './src/components/TabBar';
+import { Viewer } from './src/components/Viewer';
 import { Login } from './src/screens/Login';
 import { Home } from './src/screens/Home';
 import { Streaks } from './src/screens/Streaks';
+import { Memories } from './src/screens/Memories';
 import { MeScreen } from './src/screens/MeScreen';
 import { Camera } from './src/screens/Camera';
 import {
@@ -38,23 +28,15 @@ import {
 import { DEFAULT_END_HOUR, DEFAULT_START_HOUR } from './src/config';
 import { getItem, setItem } from './src/store';
 import { onReminderTap, scheduleReminders } from './src/notify';
-import { DEFAULT_THEME, THEMES, ThemeContext, type ThemeKey } from './src/theme';
-import type { StreakRow } from './src/streak';
+import { ACCENTS, ThemeContext, makeTheme, type AccentKey, type Appearance } from './src/theme';
+import { computeStreak, type StreakRow } from './src/streak';
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    Figtree_300Light_Italic,
-    Figtree_400Regular,
-    Figtree_500Medium,
-    Figtree_500Medium_Italic,
-    Figtree_600SemiBold,
-    Figtree_700Bold,
-    Figtree_700Bold_Italic,
-    Figtree_800ExtraBold,
-  });
-  const [themeKey, setThemeKey] = useState<ThemeKey>(DEFAULT_THEME);
-  const theme = THEMES[themeKey];
-  const [streakRows, setStreakRows] = useState<StreakRow[]>([]);
+  const systemDark = useColorScheme() === 'dark';
+  const [appearance, setAppearance] = useState<Appearance>('auto');
+  const [accentKey, setAccentKey] = useState<AccentKey>('blue');
+  const theme = useMemo(() => makeTheme(appearance, accentKey, systemDark), [appearance, accentKey, systemDark]);
+
   const [booting, setBooting] = useState(true);
   const [me, setMe] = useState<Me | null>(null);
   const [code, setCode] = useState('');
@@ -63,27 +45,31 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [snaps, setSnaps] = useState<Snap[]>([]);
   const [kept, setKept] = useState<Snap[]>([]);
+  const [streakRows, setStreakRows] = useState<StreakRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [reminders, setReminders] = useState(true);
   const [start, setStart] = useState(DEFAULT_START_HOUR);
   const [end, setEnd] = useState(DEFAULT_END_HOUR);
+  const [viewer, setViewer] = useState<{ ids: string[]; start: string } | null>(null);
 
   // Restore session and settings.
   useEffect(() => {
     (async () => {
-      const th = (await getItem('theme')) as ThemeKey | null;
-      if (th && THEMES[th]) setThemeKey(th);
-      const [u, c, r, s, e] = await Promise.all([
+      const [u, c, r, s, e, a, ac] = await Promise.all([
         currentUser(),
         getItem('code'),
         getItem('reminders'),
         getItem('start'),
         getItem('end'),
+        getItem('appearance'),
+        getItem('accent'),
       ]);
       if (r) setReminders(r === '1');
       if (s) setStart(Number(s));
       if (e) setEnd(Number(e));
       if (c) setCode(c);
+      if (a === 'auto' || a === 'light' || a === 'dark') setAppearance(a);
+      if (ac && ac in ACCENTS) setAccentKey(ac as AccentKey);
       setMe(u);
       setBooting(false);
     })();
@@ -122,10 +108,19 @@ export default function App() {
     };
   }, [me, load]);
 
-  // Keep reminders in sync with settings.
   useEffect(() => {
     if (me) scheduleReminders(reminders, start, end).catch(() => {});
   }, [me, reminders, start, end]);
+
+  const myStreak = useMemo(() => (me ? computeStreak(streakRows.filter((r) => r.authorId === me.id)).current : 0), [streakRows, me]);
+
+  // Everything the viewer can show, kept fresh after reactions.
+  const allById = useMemo(() => {
+    const m = new Map<string, Snap>();
+    [...kept, ...snaps].forEach((s) => m.set(s.$id, s));
+    return m;
+  }, [snaps, kept]);
+  const viewerSnaps = viewer ? viewer.ids.map((id) => allById.get(id)).filter((s): s is Snap => !!s) : [];
 
   const replace = (s: Snap) => {
     setSnaps((all) => all.map((x) => (x.$id === s.$id ? s : x)));
@@ -135,22 +130,20 @@ export default function App() {
     });
   };
 
-  const wrap = (node: React.ReactNode, light = !theme.dark) => (
+  const wrap = (node: React.ReactNode, lightContent = theme.dark) => (
     <ThemeContext.Provider value={theme}>
       <SafeAreaProvider>
-        <StatusBar style={light ? 'dark' : 'light'} />
+        <StatusBar style={lightContent ? 'light' : 'dark'} />
         {node}
       </SafeAreaProvider>
     </ThemeContext.Provider>
   );
 
-  if (!fontsLoaded || booting)
+  if (booting)
     return wrap(
-      <Background>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={theme.accent} size="large" />
-        </View>
-      </Background>,
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
+        <ActivityIndicator color={theme.secondary} />
+      </View>,
     );
 
   if (!me)
@@ -170,77 +163,97 @@ export default function App() {
   if (camera)
     return wrap(
       <Camera
-          me={me}
-          onTime={onTime}
-          onClose={() => setCamera(false)}
-          onPosted={() => {
-            setCamera(false);
-            setTab('home');
-            load();
-          }}
-        />,
-      false,
+        me={me}
+        onTime={onTime}
+        onClose={() => setCamera(false)}
+        onPosted={() => {
+          setCamera(false);
+          setTab('home');
+          load();
+        }}
+      />,
+      true,
     );
 
+  const open = (list: Snap[], id: string) => setViewer({ ids: list.map((s) => s.$id), start: id });
+
   return wrap(
-      <Background>
-        {tab === 'home' && (
-          <Home
-            me={me}
-            members={members}
-            snaps={snaps}
-            refreshing={refreshing}
-            remindersOn={reminders}
-            windowHours={end - start + 1}
-            onRefresh={load}
-            onSnap={() => setCamera(true)}
-            onReact={async (s, e) => replace(await react(s, me.id, e))}
-            onKeep={async (s) => replace(await toggleKeep(s, me.id))}
-            onDelete={async (s) => {
-              await deleteSnap(s);
-              setSnaps((all) => all.filter((x) => x.$id !== s.$id));
-              setKept((all) => all.filter((x) => x.$id !== s.$id));
-            }}
-            onBell={() => setTab('me')}
-          />
-        )}
-        {tab === 'streaks' && (
-          <Streaks me={me} members={members} rows={streakRows} refreshing={refreshing} onRefresh={load} />
-        )}
-        {tab === 'me' && (
-          <MeScreen
-            me={me}
-            code={code}
-            snaps={snaps}
-            kept={kept}
-            reminders={reminders}
-            start={start}
-            end={end}
-            onReminders={(on) => {
-              setReminders(on);
-              setItem('reminders', on ? '1' : '0');
-            }}
-            onWindow={(s, e) => {
-              setStart(s);
-              setEnd(e);
-              setItem('start', String(s));
-              setItem('end', String(e));
-            }}
-            onLogout={async () => {
-              await scheduleReminders(false, start, end).catch(() => {});
-              await logout();
-              setMe(null);
-              setSnaps([]);
-              setKept([]);
-              setTab('home');
-            }}
-            onTheme={(k) => {
-              setThemeKey(k);
-              setItem('theme', k);
-            }}
-          />
-        )}
-        <PillNav tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
-      </Background>,
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      {tab === 'home' && (
+        <Home
+          me={me}
+          members={members}
+          snaps={snaps}
+          streak={myStreak}
+          refreshing={refreshing}
+          onRefresh={load}
+          onSnap={() => setCamera(true)}
+          onOpen={open}
+          onStreaks={() => setTab('streaks')}
+        />
+      )}
+      {tab === 'streaks' && <Streaks me={me} members={members} rows={streakRows} refreshing={refreshing} onRefresh={load} />}
+      {tab === 'memories' && <Memories me={me} kept={kept} snaps={snaps} refreshing={refreshing} onRefresh={load} onOpen={open} />}
+      {tab === 'me' && (
+        <MeScreen
+          me={me}
+          code={code}
+          snaps={snaps}
+          kept={kept}
+          reminders={reminders}
+          start={start}
+          end={end}
+          appearance={appearance}
+          accentKey={accentKey}
+          onAppearance={(a) => {
+            setAppearance(a);
+            setItem('appearance', a);
+          }}
+          onAccent={(k) => {
+            setAccentKey(k);
+            setItem('accent', k);
+          }}
+          onReminders={(on) => {
+            setReminders(on);
+            setItem('reminders', on ? '1' : '0');
+          }}
+          onWindow={(s, e) => {
+            setStart(s);
+            setEnd(e);
+            setItem('start', String(s));
+            setItem('end', String(e));
+          }}
+          onLogout={async () => {
+            await scheduleReminders(false, start, end).catch(() => {});
+            await logout();
+            setMe(null);
+            setSnaps([]);
+            setKept([]);
+            setStreakRows([]);
+            setTab('home');
+          }}
+        />
+      )}
+      <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
+      <Viewer
+        key={viewer?.start ?? 'none'}
+        snaps={viewerSnaps}
+        startId={viewer?.start ?? null}
+        meId={me.id}
+        onClose={() => setViewer(null)}
+        onReact={async (s, e) => replace(await react(s, me.id, e))}
+        onKeep={async (s) => replace(await toggleKeep(s, me.id))}
+        onDelete={async (s) => {
+          await deleteSnap(s);
+          setSnaps((all) => all.filter((x) => x.$id !== s.$id));
+          setKept((all) => all.filter((x) => x.$id !== s.$id));
+          setViewer((v) => {
+            if (!v) return v;
+            const ids = v.ids.filter((id) => id !== s.$id);
+            return ids.length ? { ids, start: ids[0] } : null;
+          });
+        }}
+      />
+    </View>,
   );
 }

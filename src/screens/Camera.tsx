@@ -4,8 +4,9 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { PillButton, RoundButton } from '../components/ui';
-import { F, useStyles, useTheme, type Theme } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Button, PressScale } from '../components/ui';
+import { T, useTheme } from '../theme';
 import { niceError, postSnap, type Me } from '../api';
 
 type Step = 'back' | 'front' | 'review' | 'posting';
@@ -32,8 +33,7 @@ export function Camera({
   onClose: () => void;
   onPosted: () => void;
 }) {
-  const C = useTheme();
-  const styles = useStyles(makeStyles);
+  const c = useTheme();
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -102,21 +102,35 @@ export function Camera({
   if (!perm.granted)
     return (
       <View style={[styles.black, styles.center, { padding: 32 }]}>
-        <Text style={styles.permTitle}>StormSnap needs your camera</Text>
-        <Text style={styles.permText}>It takes one photo with the back camera and one with the front.</Text>
-        <PillButton title="Allow camera" onPress={requestPerm} style={{ marginTop: 20 }} />
-        <PillButton title="Not now" dark onPress={onClose} style={{ marginTop: 10 }} />
+        <Ionicons name="camera-outline" size={56} color="rgba(235,235,245,0.6)" />
+        <Text style={[T.title2, { color: '#FFFFFF', textAlign: 'center', marginTop: 16 }]}>Camera access</Text>
+        <Text style={[T.body, { color: 'rgba(235,235,245,0.6)', textAlign: 'center', marginTop: 8 }]}>
+          StormSnap takes one photo with the back camera and one with the front.
+        </Text>
+        <Button title="Allow camera" onPress={requestPerm} style={{ marginTop: 24, alignSelf: 'stretch' }} />
+        <Button title="Not now" kind="plain" onPress={onClose} style={{ marginTop: 6, alignSelf: 'stretch' }} />
       </View>
     );
 
   const reviewing = step === 'review' || step === 'posting';
   const big = swapped ? front : back;
   const small = swapped ? back : front;
+  const label = step === 'back' ? 'BACK' : step === 'front' ? 'SMILE' : onTime ? 'ON TIME' : 'EXTRA SNAP';
 
   return (
     <View style={styles.black}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <View style={[styles.frame, { marginTop: insets.top + 8 }]}>
+        <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
+          <PressScale onPress={onClose} accessibilityLabel="Close" style={styles.circle}>
+            <Ionicons name="close" size={22} color="#FFFFFF" />
+          </PressScale>
+          <View style={[styles.mode, step === 'front' && { backgroundColor: '#FFD60A' }]}>
+            <Text style={[T.caption2, { color: step === 'front' ? '#000' : '#FFD60A', fontWeight: '700', letterSpacing: 1 }]}>{label}</Text>
+          </View>
+          <View style={{ width: 44 }} />
+        </View>
+
+        <View style={styles.frame}>
           {!reviewing ? (
             <CameraView
               ref={cam}
@@ -134,62 +148,37 @@ export function Camera({
           )}
 
           {(back && step === 'front') || reviewing ? (
-            <Pressable style={styles.inset} onPress={() => reviewing && setSwapped((s) => !s)}>
-              {reviewing ? (
-                small && <Image source={{ uri: small }} style={StyleSheet.absoluteFill} />
-              ) : (
-                back && <Image source={{ uri: back }} style={StyleSheet.absoluteFill} />
-              )}
+            <Pressable style={styles.inset} onPress={() => reviewing && setSwapped((x) => !x)} accessibilityLabel="Swap photos">
+              {reviewing ? small && <Image source={{ uri: small }} style={StyleSheet.absoluteFill} /> : back && <Image source={{ uri: back }} style={StyleSheet.absoluteFill} />}
             </Pressable>
           ) : null}
 
-          <View style={styles.topBar}>
-            <RoundButton icon="close" dark onPress={onClose} label="Close" />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {step === 'back' ? 'Back camera' : step === 'front' ? 'Now smile!' : onTime ? 'On time' : 'Extra snap'}
-              </Text>
-            </View>
-            <View style={{ width: 46 }} />
-          </View>
-
           {step === 'front' && (
             <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
-              <ActivityIndicator color={C.white} size="large" />
+              <ActivityIndicator color="#FFFFFF" size="large" />
             </View>
           )}
         </View>
 
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
-          {!!error && <Text style={styles.error}>{error}</Text>}
+        <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
+          {!!error && <Text style={[T.footnote, { color: '#FF453A', textAlign: 'center' }]}>{error}</Text>}
           {!reviewing ? (
-            <Pressable
-              onPress={shoot}
-              disabled={step !== 'back'}
-              style={({ pressed }) => [styles.shutter, { transform: [{ scale: pressed ? 0.92 : 1 }] }]}
-              accessibilityLabel="Take snap"
-            >
+            <PressScale onPress={shoot} disabled={step !== 'back'} scaleTo={0.9} accessibilityLabel="Take snap" style={styles.shutter}>
               <View style={styles.shutterInner} />
-            </Pressable>
+            </PressScale>
           ) : (
             <>
               <TextInput
                 value={caption}
                 onChangeText={setCaption}
-                placeholder="Add a caption…"
-                placeholderTextColor="rgba(255,255,255,0.6)"
+                placeholder="Add a caption"
+                placeholderTextColor="rgba(235,235,245,0.4)"
                 maxLength={140}
-                style={styles.caption}
+                style={[styles.caption, T.body]}
               />
               <View style={styles.row}>
-                <PillButton title="Retake" icon="refresh" onPress={retake} style={{ flex: 1 }} />
-                <PillButton
-                  title="Post"
-                  icon="send"
-                  busy={step === 'posting'}
-                  onPress={post}
-                  style={{ flex: 1, backgroundColor: C.accent }}
-                />
+                <Button title="Retake" kind="gray" icon="refresh" onPress={retake} style={{ flex: 1, backgroundColor: 'rgba(118,118,128,0.3)' }} />
+                <Button title="Post" icon="arrow-up" busy={step === 'posting'} onPress={post} style={{ flex: 1 }} />
               </View>
             </>
           )}
@@ -199,66 +188,17 @@ export function Camera({
   );
 }
 
-const makeStyles = (C: Theme) =>
-  StyleSheet.create({
-  black: { flex: 1, backgroundColor: '#0D0B0C' },
+const styles = StyleSheet.create({
+  black: { flex: 1, backgroundColor: '#000000' },
   center: { alignItems: 'center', justifyContent: 'center' },
-  frame: {
-    flex: 1,
-    marginHorizontal: 10,
-    borderRadius: 32,
-    overflow: 'hidden',
-    backgroundColor: '#1d191b',
-    maxWidth: 520,
-    width: '95%',
-    alignSelf: 'center',
-  },
-  inset: {
-    position: 'absolute',
-    top: 78,
-    left: 14,
-    width: 110,
-    height: 146,
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: C.white,
-    backgroundColor: '#333',
-  },
-  topBar: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    right: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  badge: { backgroundColor: 'rgba(20,17,19,0.45)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
-  badgeText: { color: C.white, fontFamily: F.semibold, fontSize: 13 },
-  bottom: { paddingTop: 18, paddingHorizontal: 18, alignItems: 'center', gap: 12, maxWidth: 520, width: '100%', alignSelf: 'center' },
-  shutter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    borderWidth: 5,
-    borderColor: C.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: C.accent },
-  caption: {
-    width: '100%',
-    height: 50,
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    color: C.white,
-    fontFamily: F.medium,
-    fontSize: 15,
-  },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  circle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(118,118,128,0.3)', alignItems: 'center', justifyContent: 'center' },
+  mode: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(118,118,128,0.3)' },
+  frame: { flex: 1, marginHorizontal: 12, borderRadius: 24, overflow: 'hidden', backgroundColor: '#1C1C1E', maxWidth: 540, width: '94%', alignSelf: 'center' },
+  inset: { position: 'absolute', top: 14, left: 14, width: 104, height: 138, borderRadius: 14, overflow: 'hidden', borderWidth: 2.5, borderColor: '#FFFFFF', backgroundColor: '#2C2C2E' },
+  bottom: { paddingTop: 20, paddingHorizontal: 16, alignItems: 'center', gap: 12, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFFFFF' },
+  caption: { width: '100%', height: 48, borderRadius: 14, paddingHorizontal: 16, backgroundColor: 'rgba(118,118,128,0.24)', color: '#FFFFFF' },
   row: { flexDirection: 'row', gap: 10, width: '100%' },
-  error: { color: '#FFB3C8', fontFamily: F.medium, fontSize: 13, textAlign: 'center' },
-  permTitle: { color: C.white, fontFamily: F.bold, fontSize: 22, textAlign: 'center' },
-  permText: { color: 'rgba(255,255,255,0.7)', fontFamily: F.regular, fontSize: 15, textAlign: 'center', marginTop: 8 },
 });

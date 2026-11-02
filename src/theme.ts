@@ -1,230 +1,87 @@
+// Apple-style design tokens: one place for every colour, size, radius and font weight.
 import { createContext, useContext, useMemo } from 'react';
+import { Platform, TextStyle } from 'react-native';
+
+export type Appearance = 'auto' | 'light' | 'dark';
+export type AccentKey = 'blue' | 'orange' | 'green' | 'pink' | 'purple' | 'graphite';
+
+export const ACCENTS: Record<AccentKey, { name: string; light: string; dark: string }> = {
+  blue: { name: 'Blue', light: '#007AFF', dark: '#0A84FF' },
+  orange: { name: 'Orange', light: '#FF9500', dark: '#FF9F0A' },
+  green: { name: 'Green', light: '#34C759', dark: '#30D158' },
+  pink: { name: 'Pink', light: '#FF2D55', dark: '#FF375F' },
+  purple: { name: 'Purple', light: '#AF52DE', dark: '#BF5AF2' },
+  graphite: { name: 'Graphite', light: '#3A3A3C', dark: '#AEAEB2' },
+};
+export const ACCENT_ORDER: AccentKey[] = ['blue', 'orange', 'green', 'pink', 'purple', 'graphite'];
 
 export type Theme = {
-  key: ThemeKey;
-  name: string;
   dark: boolean;
-  bg: [string, string, string];
-  blobA: string;
-  blobB: string;
-  glass: string;
-  glassStrong: string;
-  glassBorder: string;
-  field: string;
-  ink: string;
-  inkSoft: string;
-  muted: string;
-  headline: string;
-  headlineShadow: string;
+  appearance: Appearance;
+  accentKey: AccentKey;
   accent: string;
-  accentDeep: string;
-  accentSoft: string;
-  accentBorder: string;
+  accentTint: string;
   onAccent: string;
-  navBg: string;
-  navBtn: string;
-  navIcon: string;
-  navActive: string;
-  navActiveIcon: string;
-  empty: string;
-  future: string;
+  bg: string; // grouped background
+  card: string; // grouped cell
+  card2: string; // raised inside a card
+  fill: string; // control fill
+  label: string;
+  secondary: string;
+  tertiary: string;
+  separator: string;
   fire: string;
+  fireTint: string;
   shield: string;
-  danger: string;
-  white: string;
+  red: string;
+  barBg: string;
 };
 
-export type ThemeKey = 'night' | 'ocean' | 'sunset' | 'clean' | 'forest' | 'pink';
-
-const base = { white: '#FFFFFF', danger: '#E5484D', fire: '#FF7A1A', shield: '#3FA9F5' };
-
-export const THEMES: Record<ThemeKey, Theme> = {
-  night: {
-    ...base,
-    key: 'night',
-    name: 'Night',
-    dark: true,
-    bg: ['#0B0C10', '#141722', '#0E1016'],
-    blobA: 'rgba(79,140,255,0.16)',
-    blobB: 'rgba(140,90,255,0.10)',
-    glass: 'rgba(255,255,255,0.06)',
-    glassStrong: 'rgba(255,255,255,0.09)',
-    glassBorder: 'rgba(255,255,255,0.12)',
-    field: 'rgba(255,255,255,0.08)',
-    ink: '#F4F6FA',
-    inkSoft: '#C9CEDA',
-    muted: '#8B93A5',
-    headline: '#FFFFFF',
-    headlineShadow: 'rgba(79,140,255,0.35)',
-    accent: '#4F8CFF',
-    accentDeep: '#8DB5FF',
-    accentSoft: 'rgba(79,140,255,0.18)',
-    accentBorder: 'rgba(79,140,255,0.45)',
-    onAccent: '#FFFFFF',
-    navBg: '#F4F6FA',
-    navBtn: '#E2E6EE',
-    navIcon: '#0B0C10',
-    navActive: '#0B0C10',
-    navActiveIcon: '#FFFFFF',
-    empty: 'rgba(255,255,255,0.10)',
-    future: 'rgba(255,255,255,0.04)',
-  },
-  ocean: {
-    ...base,
-    key: 'ocean',
-    name: 'Ocean',
-    dark: false,
-    bg: ['#EAF3FC', '#BCD7F3', '#DCEBFA'],
-    blobA: 'rgba(255,255,255,0.55)',
-    blobB: 'rgba(31,111,200,0.14)',
-    glass: 'rgba(255,255,255,0.45)',
-    glassStrong: 'rgba(255,255,255,0.75)',
-    glassBorder: 'rgba(255,255,255,0.9)',
-    field: 'rgba(255,255,255,0.85)',
-    ink: '#0F2238',
-    inkSoft: '#2F4A68',
-    muted: '#5F7895',
-    headline: '#0F2238',
-    headlineShadow: 'rgba(0,0,0,0)',
-    accent: '#1F6FC8',
-    accentDeep: '#174F8F',
-    accentSoft: '#DCEAFB',
-    accentBorder: '#A9C9EF',
-    onAccent: '#FFFFFF',
-    navBg: '#0F1A26',
-    navBtn: '#24313F',
-    navIcon: '#FFFFFF',
-    navActive: '#FFFFFF',
-    navActiveIcon: '#0F1A26',
-    empty: 'rgba(15,34,56,0.12)',
-    future: 'rgba(15,34,56,0.05)',
-  },
-  sunset: {
-    ...base,
-    key: 'sunset',
-    name: 'Sunset',
-    dark: false,
-    bg: ['#FFF1E4', '#FFC49A', '#FFE2C9'],
-    blobA: 'rgba(255,255,255,0.5)',
-    blobB: 'rgba(232,89,12,0.14)',
-    glass: 'rgba(255,255,255,0.45)',
-    glassStrong: 'rgba(255,255,255,0.75)',
-    glassBorder: 'rgba(255,255,255,0.9)',
-    field: 'rgba(255,255,255,0.85)',
-    ink: '#2A160A',
-    inkSoft: '#5A3A24',
-    muted: '#8C6A52',
-    headline: '#2A160A',
-    headlineShadow: 'rgba(0,0,0,0)',
-    accent: '#E8590C',
-    accentDeep: '#B04208',
-    accentSoft: '#FFE3D0',
-    accentBorder: '#FFC09A',
-    onAccent: '#FFFFFF',
-    navBg: '#1E140E',
-    navBtn: '#3A2A20',
-    navIcon: '#FFFFFF',
-    navActive: '#FFFFFF',
-    navActiveIcon: '#1E140E',
-    empty: 'rgba(42,22,10,0.12)',
-    future: 'rgba(42,22,10,0.05)',
-  },
-  clean: {
-    ...base,
-    key: 'clean',
-    name: 'Clean',
-    dark: false,
-    bg: ['#FFFFFF', '#F2F3F5', '#F7F7F8'],
-    blobA: 'rgba(0,0,0,0)',
-    blobB: 'rgba(0,0,0,0)',
-    glass: '#FFFFFF',
-    glassStrong: '#FFFFFF',
-    glassBorder: '#E6E7EA',
-    field: '#F4F5F7',
-    ink: '#111214',
-    inkSoft: '#3D4047',
-    muted: '#7A7E87',
-    headline: '#111214',
-    headlineShadow: 'rgba(0,0,0,0)',
-    accent: '#111214',
-    accentDeep: '#111214',
-    accentSoft: '#F0F1F3',
-    accentBorder: '#D5D7DB',
-    onAccent: '#FFFFFF',
-    navBg: '#111214',
-    navBtn: '#2A2C30',
-    navIcon: '#FFFFFF',
-    navActive: '#FFFFFF',
-    navActiveIcon: '#111214',
-    empty: 'rgba(17,18,20,0.10)',
-    future: 'rgba(17,18,20,0.04)',
-  },
-  forest: {
-    ...base,
-    key: 'forest',
-    name: 'Forest',
-    dark: true,
-    bg: ['#0C1410', '#14231B', '#0E1712'],
-    blobA: 'rgba(76,201,140,0.14)',
-    blobB: 'rgba(200,230,120,0.08)',
-    glass: 'rgba(255,255,255,0.06)',
-    glassStrong: 'rgba(255,255,255,0.09)',
-    glassBorder: 'rgba(255,255,255,0.12)',
-    field: 'rgba(255,255,255,0.08)',
-    ink: '#F1F7F3',
-    inkSoft: '#C6D6CC',
-    muted: '#8AA394',
-    headline: '#FFFFFF',
-    headlineShadow: 'rgba(76,201,140,0.35)',
-    accent: '#3DCB8A',
-    accentDeep: '#8FE6BC',
-    accentSoft: 'rgba(61,203,138,0.18)',
-    accentBorder: 'rgba(61,203,138,0.45)',
-    onAccent: '#06130C',
-    navBg: '#F1F7F3',
-    navBtn: '#DDE8E1',
-    navIcon: '#0C1410',
-    navActive: '#0C1410',
-    navActiveIcon: '#FFFFFF',
-    empty: 'rgba(255,255,255,0.10)',
-    future: 'rgba(255,255,255,0.04)',
-  },
-  pink: {
-    ...base,
-    key: 'pink',
-    name: 'Pink',
-    dark: false,
-    bg: ['#FBE3EC', '#F2C3D5', '#F7D9E4'],
-    blobA: 'rgba(255,255,255,0.45)',
-    blobB: 'rgba(226,102,143,0.18)',
-    glass: 'rgba(255,255,255,0.42)',
-    glassStrong: 'rgba(255,255,255,0.72)',
-    glassBorder: 'rgba(255,255,255,0.85)',
-    field: 'rgba(255,255,255,0.8)',
-    ink: '#1C1418',
-    inkSoft: '#4A3540',
-    muted: '#8B6878',
-    headline: '#1C1418',
-    headlineShadow: 'rgba(0,0,0,0)',
-    accent: '#E2668F',
-    accentDeep: '#B8456D',
-    accentSoft: '#FCE1EB',
-    accentBorder: '#F3B5CB',
-    onAccent: '#FFFFFF',
-    navBg: '#141113',
-    navBtn: '#2A2427',
-    navIcon: '#FFFFFF',
-    navActive: '#FFFFFF',
-    navActiveIcon: '#141113',
-    empty: 'rgba(28,20,24,0.12)',
-    future: 'rgba(28,20,24,0.05)',
-  },
+const LIGHT = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  card2: '#F2F2F7',
+  fill: 'rgba(120,120,128,0.12)',
+  label: '#000000',
+  secondary: 'rgba(60,60,67,0.6)',
+  tertiary: 'rgba(60,60,67,0.3)',
+  separator: 'rgba(60,60,67,0.18)',
+  fire: '#FF9500',
+  fireTint: 'rgba(255,149,0,0.14)',
+  shield: '#007AFF',
+  red: '#FF3B30',
+  barBg: 'rgba(249,249,249,0.94)',
+};
+const DARK = {
+  bg: '#000000',
+  card: '#1C1C1E',
+  card2: '#2C2C2E',
+  fill: 'rgba(120,120,128,0.24)',
+  label: '#FFFFFF',
+  secondary: 'rgba(235,235,245,0.6)',
+  tertiary: 'rgba(235,235,245,0.3)',
+  separator: 'rgba(84,84,88,0.65)',
+  fire: '#FF9F0A',
+  fireTint: 'rgba(255,159,10,0.18)',
+  shield: '#0A84FF',
+  red: '#FF453A',
+  barBg: 'rgba(22,22,24,0.92)',
 };
 
-export const THEME_ORDER: ThemeKey[] = ['night', 'ocean', 'sunset', 'forest', 'clean', 'pink'];
-export const DEFAULT_THEME: ThemeKey = 'night';
+const hexToRgba = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
 
-export const ThemeContext = createContext<Theme>(THEMES[DEFAULT_THEME]);
+export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDark: boolean): Theme {
+  const dark = appearance === 'auto' ? systemDark : appearance === 'dark';
+  const base = dark ? DARK : LIGHT;
+  const accent = ACCENTS[accentKey][dark ? 'dark' : 'light'];
+  const onAccent = accentKey === 'graphite' && dark ? '#000000' : '#FFFFFF';
+  return { ...base, dark, appearance, accentKey, accent, accentTint: hexToRgba(accent, dark ? 0.22 : 0.12), onAccent };
+}
+
+export const ThemeContext = createContext<Theme>(makeTheme('auto', 'blue', false));
 export const useTheme = () => useContext(ThemeContext);
 
 /** Builds a theme-aware StyleSheet once per theme. */
@@ -233,18 +90,35 @@ export function useStyles<T>(make: (t: Theme) => T): T {
   return useMemo(() => make(t), [t, make]);
 }
 
-export const F = {
-  regular: 'Figtree_400Regular',
-  medium: 'Figtree_500Medium',
-  semibold: 'Figtree_600SemiBold',
-  bold: 'Figtree_700Bold',
-  black: 'Figtree_800ExtraBold',
-  italic: 'Figtree_500Medium_Italic',
-  boldItalic: 'Figtree_700Bold_Italic',
-  lightItalic: 'Figtree_300Light_Italic',
+// System font everywhere (SF on Apple, Roboto on Android, system-ui on web).
+const family = Platform.select({ web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif', default: undefined });
+const round = Platform.select({ web: 'ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif', default: undefined });
+const t = (size: number, weight: TextStyle['fontWeight'], extra: TextStyle = {}): TextStyle => ({
+  fontFamily: family,
+  fontSize: size,
+  fontWeight: weight,
+  ...extra,
+});
+
+// iOS text styles.
+export const T = {
+  largeTitle: t(34, '700', { letterSpacing: 0.37, lineHeight: 41 }),
+  title2: t(22, '700', { letterSpacing: 0.35, lineHeight: 28 }),
+  title3: t(20, '600', { letterSpacing: 0.38, lineHeight: 25 }),
+  headline: t(17, '600', { letterSpacing: -0.41, lineHeight: 22 }),
+  body: t(17, '400', { letterSpacing: -0.41, lineHeight: 22 }),
+  callout: t(16, '400', { letterSpacing: -0.32, lineHeight: 21 }),
+  subhead: t(15, '400', { letterSpacing: -0.24, lineHeight: 20 }),
+  footnote: t(13, '400', { letterSpacing: -0.08, lineHeight: 18 }),
+  caption: t(12, '400', { lineHeight: 16 }),
+  caption2: t(11, '500', { letterSpacing: 0.07, lineHeight: 13 }),
+  bigNumber: { fontFamily: round, fontSize: 76, fontWeight: '800', letterSpacing: -2, lineHeight: 80, fontVariant: ['tabular-nums'] } as TextStyle,
+  number: { fontFamily: round, fontWeight: '700', fontVariant: ['tabular-nums'] } as TextStyle,
 };
 
-const AVATAR_COLORS = ['#E2668F', '#9B6CD8', '#F0A04B', '#3FA3A0', '#5B8DEF', '#D8577B'];
+export const R = { card: 12, tile: 14, sheet: 20 };
+
+const AVATAR_COLORS = ['#FF9500', '#5856D6', '#34C759', '#FF2D55', '#007AFF', '#AF52DE'];
 export const colorFor = (id: string) => {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
