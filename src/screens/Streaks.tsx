@@ -1,32 +1,45 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Avatar, LargeTitle, Section } from '../components/ui';
+import { Avatar, Card, Icon, Press, SectionLabel, Shape, TopBar, type IconName } from '../components/ui';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
-import { R, T, useStyles, useTheme, type Theme } from '../theme';
+import { S, T, useStyles, useTheme, type Theme } from '../theme';
 import { BADGES, MAX_BONUS, STREAK_END, STREAK_START, computeStreak, type SlotState, type StreakRow, type StreakStats } from '../streak';
 import type { Me, Member } from '../api';
 
 const MILESTONES = [3, 7, 14, 30, 60, 100];
+const BADGE_ICONS: Record<string, IconName> = {
+  spark: 'fire',
+  flame: 'fire',
+  blaze: 'fire-circle',
+  inferno: 'campfire',
+  wildfire: 'campfire',
+  legend: 'trophy',
+  fullday: 'calendar-check',
+  early: 'weather-sunset-up',
+  owl: 'weather-night',
+  saved: 'shield-check',
+  collector: 'shield-star',
+  hundred: 'camera-burst',
+};
+const BADGE_SHAPES: ('cookie' | 'burst' | 'clover' | 'circle')[] = ['cookie', 'burst', 'clover'];
 
-function Shields({ n, size = 15 }: { n: number; size?: number }) {
+function Shields({ n, size = 16 }: { n: number; size?: number }) {
   const c = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {Array.from({ length: MAX_BONUS }, (_, i) => (
-        <Ionicons key={i} name={i < n ? 'shield' : 'shield-outline'} size={size} color={i < n ? c.shield : c.tertiary} />
+        <Icon key={i} name={i < n ? 'shield' : 'shield-outline'} size={size} color={i < n ? c.shield : c.outline} />
       ))}
     </View>
   );
 }
 
-/** Today 8u–21u as a row of hour capsules. */
 function Timeline({ today, compact }: { today: Record<number, SlotState>; compact?: boolean }) {
   const c = useTheme();
   const hours: number[] = [];
   for (let h = STREAK_START; h <= STREAK_END; h++) hours.push(h);
-  const color = (st: SlotState) => (st === 'snap' ? c.fire : st === 'saved' ? c.shield : st === 'missed' ? c.fill : 'transparent');
+  const bg = (st: SlotState) => (st === 'snap' ? c.fire : st === 'saved' ? c.shield : st === 'missed' ? c.surfaceContainerHighest : 'transparent');
   return (
     <View>
       <View style={{ flexDirection: 'row', gap: 3 }}>
@@ -37,25 +50,25 @@ function Timeline({ today, compact }: { today: Record<number, SlotState>; compac
               key={h}
               style={{
                 flex: 1,
-                height: compact ? 6 : 26,
-                borderRadius: compact ? 3 : 6,
-                backgroundColor: color(st),
-                borderWidth: st === 'future' || st === 'now' ? 1 : 0,
-                borderColor: st === 'now' ? c.accent : c.fill,
+                height: compact ? 8 : 32,
+                borderRadius: compact ? 4 : st === 'snap' || st === 'saved' ? 16 : 8,
+                backgroundColor: bg(st),
+                borderWidth: st === 'future' || st === 'now' ? (st === 'now' ? 2 : 1) : 0,
+                borderColor: st === 'now' ? c.primary : c.outlineVariant,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {!compact && st === 'snap' && <Ionicons name="flame" size={12} color="#FFFFFF" />}
-              {!compact && st === 'saved' && <Ionicons name="shield" size={11} color="#FFFFFF" />}
+              {!compact && st === 'snap' && <Icon name="fire" size={14} color="#FFFFFF" />}
+              {!compact && st === 'saved' && <Icon name="shield" size={13} color={c.dark ? '#00174B' : '#FFFFFF'} />}
             </View>
           );
         })}
       </View>
       {!compact && (
-        <View style={{ flexDirection: 'row', marginTop: 5 }}>
+        <View style={{ flexDirection: 'row', marginTop: 6 }}>
           {hours.map((h) => (
-            <Text key={h} style={[T.caption2, { flex: 1, textAlign: 'center', color: c.tertiary }]}>
+            <Text key={h} style={[T.labelSmall, { flex: 1, textAlign: 'center', color: c.onSurfaceVariant }]}>
               {(h - STREAK_START) % 3 === 0 ? h : ''}
             </Text>
           ))}
@@ -65,23 +78,18 @@ function Timeline({ today, compact }: { today: Record<number, SlotState>; compac
   );
 }
 
-export function Streaks({
-  me,
-  members,
-  rows,
-  refreshing,
-  onRefresh,
-}: {
-  me: Me;
-  members: Member[];
-  rows: StreakRow[];
-  refreshing: boolean;
-  onRefresh: () => void;
-}) {
+export function Streaks({ me, members, rows, refreshing, onRefresh }: { me: Me; members: Member[]; rows: StreakRow[]; refreshing: boolean; onRefresh: () => void }) {
   const c = useTheme();
   const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [howOpen, setHowOpen] = useState(false);
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 24000, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
 
   const stats = useMemo(() => {
     const m = new Map<string, StreakStats>();
@@ -94,140 +102,153 @@ export function Streaks({
   const nextIdx = MILESTONES.findIndex((m) => m > mine.best);
   const next = nextIdx >= 0 ? MILESTONES[nextIdx] : null;
   const unlocked = BADGES.filter((b) => b.unlocked(mine)).length;
-  const sorted = [...(members.length ? members : [{ id: me.id, name: me.name }])].sort(
-    (a, b) => (stats.get(b.id)?.current ?? 0) - (stats.get(a.id)?.current ?? 0),
-  );
+  const people = [...(members.length ? members : [{ id: me.id, name: me.name }])].sort((a, b) => (stats.get(b.id)?.current ?? 0) - (stats.get(a.id)?.current ?? 0));
+  const lit = mine.current > 0;
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: c.bg }}
-      contentContainerStyle={[s.wrap, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 40 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.secondary} />}
+      style={{ flex: 1, backgroundColor: c.surface }}
+      contentContainerStyle={[s.wrap, { paddingTop: insets.top, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 104 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[c.primary]} tintColor={c.primary} />}
     >
-      <LargeTitle title="Streaks" subtitle={`${STREAK_START}u – ${STREAK_END}u`} />
+      <TopBar title="Streaks" overline={`Every hour, ${STREAK_START}u – ${STREAK_END}u`} />
 
-      <View style={s.hero}>
-        <View style={[s.flame, { backgroundColor: mine.current > 0 ? c.fireTint : c.fill }]}>
-          <Ionicons name="flame" size={40} color={mine.current > 0 ? c.fire : c.tertiary} />
+      <Card style={[s.hero, { backgroundColor: lit ? c.fireContainer : c.surfaceContainerHigh }]}>
+        <View style={s.heroTop}>
+          <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}>
+            <Shape kind="burst" size={112} color={lit ? c.fire : c.surfaceContainerHighest} />
+          </Animated.View>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <View style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="fire" size={56} color={lit ? '#FFFFFF' : c.outline} />
+            </View>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[T.hero, { color: lit ? c.onFireContainer : c.onSurface }]}>{mine.current}</Text>
+            <Text style={[T.titleMedium, { color: lit ? c.onFireContainer : c.onSurfaceVariant, marginTop: -4 }]}>
+              hour{mine.current === 1 ? '' : 's'} in a row
+            </Text>
+          </View>
         </View>
-        <Text style={[T.bigNumber, { color: c.label, marginTop: 8 }]}>{mine.current}</Text>
-        <Text style={[T.subhead, { color: c.secondary }]}>hour{mine.current === 1 ? '' : 's'} in a row</Text>
 
-        <View style={s.stats}>
-          <View style={s.stat}>
-            <Shields n={mine.bonus} size={17} />
-            <Text style={[T.caption, { color: c.secondary, marginTop: 6 }]}>Bonus</Text>
+        <View style={s.statRow}>
+          <View style={[s.stat, { backgroundColor: c.surfaceContainerLowest }]}>
+            <Shields n={mine.bonus} size={18} />
+            <Text style={[T.labelMedium, { color: c.onSurfaceVariant, marginTop: 6 }]}>Bonus</Text>
           </View>
-          <View style={[s.stat, s.statLine]}>
-            <Text style={[T.title3, T.number, { color: c.label }]}>{mine.best}</Text>
-            <Text style={[T.caption, { color: c.secondary, marginTop: 2 }]}>Best</Text>
+          <View style={[s.stat, { backgroundColor: c.surfaceContainerLowest }]}>
+            <Text style={[T.titleLargeEmph, T.num, { color: c.onSurface }]}>{mine.best}</Text>
+            <Text style={[T.labelMedium, { color: c.onSurfaceVariant }]}>Best</Text>
           </View>
-          <View style={[s.stat, s.statLine]}>
-            <Text style={[T.title3, T.number, { color: c.label }]}>{mine.todaySnaps}</Text>
-            <Text style={[T.caption, { color: c.secondary, marginTop: 2 }]}>Today</Text>
+          <View style={[s.stat, { backgroundColor: c.surfaceContainerLowest }]}>
+            <Text style={[T.titleLargeEmph, T.num, { color: c.onSurface }]}>{mine.todaySnaps}</Text>
+            <Text style={[T.labelMedium, { color: c.onSurfaceVariant }]}>Today</Text>
           </View>
         </View>
 
         {next && (
-          <View style={{ alignSelf: 'stretch', marginTop: 18 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={[T.footnote, { color: c.secondary }]}>Next: {BADGES[nextIdx].title}</Text>
-              <Text style={[T.footnote, T.number, { color: c.secondary }]}>
+          <View style={{ marginTop: 18 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={[T.labelLarge, { color: lit ? c.onFireContainer : c.onSurfaceVariant }]}>Next award: {BADGES[nextIdx].title}</Text>
+              <Text style={[T.labelLarge, T.num, { color: lit ? c.onFireContainer : c.onSurfaceVariant }]}>
                 {mine.current}/{next}
               </Text>
             </View>
-            <View style={[s.bar, { backgroundColor: c.fill }]}>
-              <View style={[s.barFill, { width: `${Math.max(3, Math.min(1, mine.current / next) * 100)}%`, backgroundColor: c.fire }]} />
+            <View style={[s.track, { backgroundColor: c.surfaceContainerLowest }]}>
+              <View style={[s.trackFill, { width: `${Math.max(4, Math.min(1, mine.current / next) * 100)}%`, backgroundColor: c.fire }]} />
             </View>
           </View>
         )}
+      </Card>
 
-        <View style={{ alignSelf: 'stretch', marginTop: 20 }}>
-          <Timeline today={mine.today} />
-        </View>
-      </View>
+      <Card tone="low" style={s.today}>
+        <Text style={[T.titleMedium, { color: c.onSurface, marginBottom: 14 }]}>Today</Text>
+        <Timeline today={mine.today} />
+      </Card>
 
-      <Pressable onPress={() => setHowOpen((o) => !o)} style={s.how} accessibilityRole="button">
-        <Text style={[T.subhead, { color: c.accent, flex: 1 }]}>How streaks work</Text>
-        <Ionicons name={howOpen ? 'chevron-up' : 'chevron-down'} size={16} color={c.accent} />
-      </Pressable>
+      <Press onPress={() => setHowOpen((o) => !o)} radius={S.full} style={s.how}>
+        <Icon name="help-circle-outline" size={20} color={c.primary} />
+        <Text style={[T.labelLarge, { color: c.primary, flex: 1 }]}>How streaks work</Text>
+        <Icon name={howOpen ? 'chevron-up' : 'chevron-down'} size={20} color={c.primary} />
+      </Press>
       {howOpen && (
-        <View style={[s.howCard, { backgroundColor: c.card }]}>
-          {[
-            ['flame', c.fire, `Snap at least once every hour from ${STREAK_START}u to ${STREAK_END}u and your streak grows.`],
-            ['shield', c.shield, `An extra snap earns a bonus: a second one in the same hour (10u and 10u30), or one outside the hours. Hold up to ${MAX_BONUS}.`],
-            ['shield-checkmark', c.shield, 'Forget an hour? A bonus springs in and saves your streak. None left means back to 0.'],
-          ].map(([icon, color, text]) => (
-            <View key={icon} style={s.howRow}>
-              <Ionicons name={icon as never} size={18} color={color} />
-              <Text style={[T.subhead, { color: c.label, flex: 1 }]}>{text}</Text>
+        <Card tone="base" style={{ padding: 16, gap: 14 }}>
+          {(
+            [
+              ['fire', c.fire, `Snap at least once every hour from ${STREAK_START}u to ${STREAK_END}u and your streak grows.`],
+              ['shield', c.shield, `An extra snap earns a bonus: a second one in the same hour (10u and 10u30), or one outside the hours. Hold up to ${MAX_BONUS}.`],
+              ['shield-check', c.shield, 'Forget an hour? A bonus springs in and saves your streak. None left means back to 0.'],
+            ] as [IconName, string, string][]
+          ).map(([icon, color, text]) => (
+            <View key={icon} style={{ flexDirection: 'row', gap: 12 }}>
+              <Icon name={icon} size={20} color={color} />
+              <Text style={[T.bodyMedium, { color: c.onSurface, flex: 1 }]}>{text}</Text>
             </View>
           ))}
-        </View>
+        </Card>
       )}
 
-      <Section title={`Awards · ${unlocked} of ${BADGES.length}`} padded>
-        <View style={s.awards}>
-          {BADGES.map((b) => {
-            const on = b.unlocked(mine);
-            return (
-              <View key={b.key} style={s.award} accessibilityLabel={`${b.title}, ${on ? 'unlocked' : 'locked'}: ${b.hint}`}>
-                <View style={[s.medal, { backgroundColor: on ? b.color : c.fill }]}>
-                  <View style={[s.medalRing, { borderColor: on ? 'rgba(255,255,255,0.35)' : 'transparent' }]} />
-                  <Ionicons name={on ? b.icon : 'lock-closed'} size={on ? 26 : 18} color={on ? '#FFFFFF' : c.tertiary} />
-                </View>
-                <Text style={[T.caption, { color: on ? c.label : c.secondary, fontWeight: '600', marginTop: 7 }]} numberOfLines={1}>
-                  {b.title}
-                </Text>
-                <Text style={[T.caption2, { color: c.secondary, textAlign: 'center', fontWeight: '400' }]} numberOfLines={2}>
-                  {b.hint}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      </Section>
+      <SectionLabel>{`Awards · ${unlocked} of ${BADGES.length}`}</SectionLabel>
+      <Card tone="low" style={s.awards}>
+        {BADGES.map((b, i) => {
+          const on = b.unlocked(mine);
+          return (
+            <View key={b.key} style={s.award} accessibilityLabel={`${b.title}, ${on ? 'unlocked' : 'locked'}: ${b.hint}`}>
+              <Shape kind={BADGE_SHAPES[i % BADGE_SHAPES.length]} size={64} color={on ? b.color : c.surfaceContainerHighest}>
+                <Icon name={on ? BADGE_ICONS[b.key] ?? 'star' : 'lock'} size={on ? 28 : 20} color={on ? '#FFFFFF' : c.outline} />
+              </Shape>
+              <Text style={[T.labelLarge, { color: on ? c.onSurface : c.onSurfaceVariant, marginTop: 8 }]} numberOfLines={1}>
+                {b.title}
+              </Text>
+              <Text style={[T.bodySmall, { color: c.onSurfaceVariant, textAlign: 'center' }]} numberOfLines={2}>
+                {b.hint}
+              </Text>
+            </View>
+          );
+        })}
+      </Card>
 
-      <Section title="Family">
-        {sorted.map((m, i) => {
+      <SectionLabel>Family</SectionLabel>
+      <Card tone="low">
+        {people.map((m, i) => {
           const st = stats.get(m.id) ?? computeStreak([]);
           return (
-            <View key={m.id} style={[s.member, i < sorted.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.separator }]}>
+            <View key={m.id} style={[s.member, i > 0 && { borderTopWidth: 1, borderTopColor: c.outlineVariant }]}>
               <View style={s.memberHead}>
-                <Avatar id={m.id} name={m.name} size={36} />
+                <Text style={[T.titleSmall, { color: c.onSurfaceVariant, width: 16 }]}>{i + 1}</Text>
+                <Avatar id={m.id} name={m.name} size={40} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[T.headline, { color: c.label }]}>{m.id === me.id ? 'You' : m.name}</Text>
-                  <Shields n={st.bonus} size={12} />
+                  <Text style={[T.titleMedium, { color: c.onSurface }]}>{m.id === me.id ? 'You' : m.name}</Text>
+                  <Shields n={st.bonus} size={13} />
                 </View>
-                <Ionicons name="flame" size={18} color={st.current > 0 ? c.fire : c.tertiary} />
-                <Text style={[T.title2, T.number, { color: c.label }]}>{st.current}</Text>
+                <View style={[s.memberChip, { backgroundColor: st.current > 0 ? c.fireContainer : c.surfaceContainerHighest }]}>
+                  <Icon name="fire" size={18} color={st.current > 0 ? c.onFireContainer : c.outline} />
+                  <Text style={[T.titleMedium, T.num, { color: st.current > 0 ? c.onFireContainer : c.onSurfaceVariant }]}>{st.current}</Text>
+                </View>
               </View>
               <Timeline today={st.today} compact />
             </View>
           );
         })}
-      </Section>
+      </Card>
     </ScrollView>
   );
 }
 
 const makeStyles = (c: Theme) =>
   StyleSheet.create({
-    wrap: { paddingHorizontal: 16, maxWidth: 600, width: '100%', alignSelf: 'center' },
-    hero: { backgroundColor: c.card, borderRadius: R.sheet, padding: 20, alignItems: 'center', marginTop: 16 },
-    flame: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
-    stats: { flexDirection: 'row', alignSelf: 'stretch', marginTop: 18, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.separator },
-    stat: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-    statLine: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: c.separator },
-    bar: { height: 6, borderRadius: 3, overflow: 'hidden' },
-    barFill: { height: 6, borderRadius: 3 },
-    how: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingTop: 14, paddingBottom: 4, minHeight: 44 },
-    howCard: { borderRadius: R.card, padding: 16, gap: 14 },
-    howRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    awards: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 18 },
-    award: { width: '33.33%', alignItems: 'center', paddingHorizontal: 4 },
-    medal: { width: 62, height: 62, borderRadius: 31, alignItems: 'center', justifyContent: 'center' },
-    medalRing: { position: 'absolute', top: 4, left: 4, right: 4, bottom: 4, borderRadius: 27, borderWidth: 1.5 },
-    member: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+    wrap: { paddingHorizontal: 16, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    hero: { padding: 20, marginTop: 8 },
+    heroTop: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+    statRow: { flexDirection: 'row', gap: 8, marginTop: 20 },
+    stat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: S.lg, minHeight: 68 },
+    track: { height: 12, borderRadius: 6, overflow: 'hidden' },
+    trackFill: { height: 12, borderRadius: 6 },
+    today: { padding: 16, marginTop: 12 },
+    how: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, height: 48, marginTop: 8 },
+    awards: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 16, rowGap: 18 },
+    award: { width: '33.33%', alignItems: 'center', paddingHorizontal: 6 },
+    member: { padding: 16, gap: 12 },
     memberHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    memberChip: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 36, paddingHorizontal: 12, borderRadius: S.sm },
   });

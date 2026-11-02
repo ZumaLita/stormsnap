@@ -141,8 +141,8 @@ export default function App() {
 
   if (booting)
     return wrap(
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.bg }}>
-        <ActivityIndicator color={theme.secondary} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.surface }}>
+        <ActivityIndicator color={theme.primary} />
       </View>,
     );
 
@@ -178,7 +178,7 @@ export default function App() {
   const open = (list: Snap[], id: string) => setViewer({ ids: list.map((s) => s.$id), start: id });
 
   return wrap(
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <View style={{ flex: 1, backgroundColor: theme.surface }}>
       {tab === 'home' && (
         <Home
           me={me}
@@ -188,8 +188,14 @@ export default function App() {
           refreshing={refreshing}
           onRefresh={load}
           onSnap={() => setCamera(true)}
-          onOpen={open}
           onStreaks={() => setTab('streaks')}
+          onReact={async (s, e) => replace(await react(s, me.id, e))}
+          onKeep={async (s) => replace(await toggleKeep(s, me.id))}
+          onDelete={async (s) => {
+            await deleteSnap(s);
+            setSnaps((all) => all.filter((x) => x.$id !== s.$id));
+            setKept((all) => all.filter((x) => x.$id !== s.$id));
+          }}
         />
       )}
       {tab === 'streaks' && <Streaks me={me} members={members} rows={streakRows} refreshing={refreshing} onRefresh={load} />}
@@ -234,7 +240,7 @@ export default function App() {
           }}
         />
       )}
-      <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
+      <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} extended={tab === 'home'} />
       <Viewer
         key={viewer?.start ?? 'none'}
         snaps={viewerSnaps}

@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Avatar, PressScale, SnapImage, tapHaptic } from './ui';
-import { R, T } from '../theme';
+import { Avatar, Icon, Press, SnapImage } from './ui';
+import { S, T } from '../theme';
 import { REACTIONS } from '../config';
 import type { Snap } from '../api';
 
@@ -51,7 +50,7 @@ function Page({
 
   return (
     <View style={{ width, alignItems: 'center' }}>
-      <Pressable onPress={() => setSwapped((s) => !s)} style={{ width: photoW, height: photoH, borderRadius: R.sheet, overflow: 'hidden' }}>
+      <Pressable onPress={() => setSwapped((s) => !s)} style={{ width: photoW, height: photoH, borderRadius: S.xl, overflow: 'hidden' }}>
         <SnapImage fileId={swapped ? snap.frontId : snap.backId} style={{ width: photoW, height: photoH }} />
         <View style={[styles.inset, { width: insetW, height: (insetW * 4) / 3 }]}>
           <SnapImage fileId={swapped ? snap.backId : snap.frontId} style={StyleSheet.absoluteFill as never} />
@@ -59,34 +58,34 @@ function Page({
       </Pressable>
 
       <View style={{ width: photoW, paddingTop: 14, gap: 12 }}>
-        {!!snap.caption && <Text style={[T.body, { color: '#FFFFFF' }]}>{snap.caption}</Text>}
+        {!!snap.caption && <Text style={[T.bodyLarge, { color: '#FFFFFF' }]}>{snap.caption}</Text>}
         {counts.size > 0 && (
-          <Text style={[T.subhead, { color: 'rgba(235,235,245,0.6)' }]}>
+          <Text style={[T.bodyMedium, { color: 'rgba(235,235,245,0.6)' }]}>
             {[...counts.entries()].map(([e, n]) => `${e} ${n}`).join('   ')}
           </Text>
         )}
         <View style={styles.actions}>
           <View style={styles.reactions}>
             {REACTIONS.map((e) => (
-              <PressScale
+              <Press
                 key={e}
-                haptic
-                scaleTo={0.85}
+                radius={22}
+                squish={0.85}
                 onPress={() => onReact(e)}
                 accessibilityLabel={`React ${e}`}
                 style={[styles.emoji, mine === e && { backgroundColor: 'rgba(255,255,255,0.22)' }]}
               >
                 <Text style={{ fontSize: 22 }}>{e}</Text>
-              </PressScale>
+              </Press>
             ))}
           </View>
-          <PressScale haptic onPress={onKeep} accessibilityLabel={kept ? 'Remove from memories' : 'Keep forever'} style={styles.round}>
-            <Ionicons name={kept ? 'star' : 'star-outline'} size={20} color={kept ? '#FFD60A' : '#FFFFFF'} />
-          </PressScale>
+          <Press radius={22} onPress={onKeep} accessibilityLabel={kept ? 'Remove from memories' : 'Keep forever'} style={styles.round}>
+            <Icon name={kept ? 'star' : 'star-outline'} size={22} color={kept ? '#FFD60A' : '#FFFFFF'} />
+          </Press>
           {snap.authorId === meId && (
-            <PressScale onPress={confirmDelete} accessibilityLabel="Delete snap" style={styles.round}>
-              <Ionicons name="trash-outline" size={19} color="#FF453A" />
-            </PressScale>
+            <Press radius={22} onPress={confirmDelete} accessibilityLabel="Delete snap" style={styles.round}>
+              <Icon name="delete-outline" size={22} color="#FF453A" />
+            </Press>
           )}
         </View>
       </View>
@@ -124,23 +123,21 @@ export function Viewer({
           <View style={styles.top}>
             <Avatar id={current.authorId} name={current.authorName} size={34} />
             <View style={{ flex: 1 }}>
-              <Text style={[T.headline, { color: '#FFFFFF' }]}>{current.authorName}</Text>
-              <Text style={[T.footnote, { color: 'rgba(235,235,245,0.6)' }]}>
+              <Text style={[T.titleMedium, { color: '#FFFFFF' }]}>{current.authorName}</Text>
+              <Text style={[T.bodySmall, { color: 'rgba(235,235,245,0.6)' }]}>
                 {time(current.$createdAt)}
                 {current.onTime ? '' : ' · extra snap'}
                 {snaps.length > 1 ? `  ·  ${index + 1} of ${snaps.length}` : ''}
               </Text>
             </View>
-            <PressScale
-              onPress={() => {
-                tapHaptic();
-                onClose();
-              }}
+            <Press
+              radius={22}
+              onPress={onClose}
               accessibilityLabel="Close"
               style={styles.round}
             >
-              <Ionicons name="close" size={22} color="#FFFFFF" />
-            </PressScale>
+              <Icon name="close" size={24} color="#FFFFFF" />
+            </Press>
           </View>
         )}
         <FlatList

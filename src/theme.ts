@@ -1,126 +1,92 @@
-// Apple-style design tokens: one place for every colour, size, radius and font weight.
+// Material 3 Expressive tokens: colour roles, type scale and shapes in one place.
 import { createContext, useContext, useMemo } from 'react';
 import { Platform, TextStyle } from 'react-native';
+import { SCHEMES } from './schemes';
 
 export type Appearance = 'auto' | 'light' | 'dark';
-export type AccentKey = 'blue' | 'orange' | 'green' | 'pink' | 'purple' | 'graphite';
-
-export const ACCENTS: Record<AccentKey, { name: string; light: string; dark: string }> = {
-  blue: { name: 'Blue', light: '#007AFF', dark: '#0A84FF' },
-  orange: { name: 'Orange', light: '#FF9500', dark: '#FF9F0A' },
-  green: { name: 'Green', light: '#34C759', dark: '#30D158' },
-  pink: { name: 'Pink', light: '#FF2D55', dark: '#FF375F' },
-  purple: { name: 'Purple', light: '#AF52DE', dark: '#BF5AF2' },
-  graphite: { name: 'Graphite', light: '#3A3A3C', dark: '#AEAEB2' },
+export type AccentKey = keyof typeof SCHEMES;
+export const ACCENTS: Record<AccentKey, { name: string; seed: string }> = {
+  blue: { name: 'Blue', seed: '#0B57D0' },
+  green: { name: 'Green', seed: '#1E8E3E' },
+  orange: { name: 'Orange', seed: '#E8710A' },
+  pink: { name: 'Pink', seed: '#D93F7A' },
+  purple: { name: 'Purple', seed: '#7B5BD6' },
+  teal: { name: 'Teal', seed: '#00897B' },
 };
-export const ACCENT_ORDER: AccentKey[] = ['blue', 'orange', 'green', 'pink', 'purple', 'graphite'];
+export const ACCENT_ORDER: AccentKey[] = ['blue', 'green', 'orange', 'pink', 'purple', 'teal'];
 
-export type Theme = {
+type Roles = { -readonly [K in keyof (typeof SCHEMES)['blue']['light']]: string };
+export type Theme = Roles & {
   dark: boolean;
   appearance: Appearance;
   accentKey: AccentKey;
-  accent: string;
-  accentTint: string;
-  onAccent: string;
-  bg: string; // grouped background
-  card: string; // grouped cell
-  card2: string; // raised inside a card
-  fill: string; // control fill
-  label: string;
-  secondary: string;
-  tertiary: string;
-  separator: string;
   fire: string;
-  fireTint: string;
+  fireContainer: string;
+  onFireContainer: string;
   shield: string;
-  red: string;
-  barBg: string;
-};
-
-const LIGHT = {
-  bg: '#F2F2F7',
-  card: '#FFFFFF',
-  card2: '#F2F2F7',
-  fill: 'rgba(120,120,128,0.12)',
-  label: '#000000',
-  secondary: 'rgba(60,60,67,0.6)',
-  tertiary: 'rgba(60,60,67,0.3)',
-  separator: 'rgba(60,60,67,0.18)',
-  fire: '#FF9500',
-  fireTint: 'rgba(255,149,0,0.14)',
-  shield: '#007AFF',
-  red: '#FF3B30',
-  barBg: 'rgba(249,249,249,0.94)',
-};
-const DARK = {
-  bg: '#000000',
-  card: '#1C1C1E',
-  card2: '#2C2C2E',
-  fill: 'rgba(120,120,128,0.24)',
-  label: '#FFFFFF',
-  secondary: 'rgba(235,235,245,0.6)',
-  tertiary: 'rgba(235,235,245,0.3)',
-  separator: 'rgba(84,84,88,0.65)',
-  fire: '#FF9F0A',
-  fireTint: 'rgba(255,159,10,0.18)',
-  shield: '#0A84FF',
-  red: '#FF453A',
-  barBg: 'rgba(22,22,24,0.92)',
-};
-
-const hexToRgba = (hex: string, a: number) => {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
 
 export function makeTheme(appearance: Appearance, accentKey: AccentKey, systemDark: boolean): Theme {
   const dark = appearance === 'auto' ? systemDark : appearance === 'dark';
-  const base = dark ? DARK : LIGHT;
-  const accent = ACCENTS[accentKey][dark ? 'dark' : 'light'];
-  const onAccent = accentKey === 'graphite' && dark ? '#000000' : '#FFFFFF';
-  return { ...base, dark, appearance, accentKey, accent, accentTint: hexToRgba(accent, dark ? 0.22 : 0.12), onAccent };
+  const roles = SCHEMES[accentKey]?.[dark ? 'dark' : 'light'] ?? SCHEMES.blue[dark ? 'dark' : 'light'];
+  return {
+    ...(roles as Roles),
+    dark,
+    appearance,
+    accentKey,
+    fire: dark ? '#FFB68A' : '#E8710A',
+    fireContainer: dark ? '#7A3300' : '#FFDBC8',
+    onFireContainer: dark ? '#FFDBC8' : '#5B2600',
+    shield: dark ? '#B2C5FF' : '#0B57D0',
+  };
 }
 
 export const ThemeContext = createContext<Theme>(makeTheme('auto', 'blue', false));
 export const useTheme = () => useContext(ThemeContext);
-
-/** Builds a theme-aware StyleSheet once per theme. */
 export function useStyles<T>(make: (t: Theme) => T): T {
   const t = useTheme();
   return useMemo(() => make(t), [t, make]);
 }
 
-// System font everywhere (SF on Apple, Roboto on Android, system-ui on web).
-const family = Platform.select({ web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif', default: undefined });
-const round = Platform.select({ web: 'ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif', default: undefined });
-const t = (size: number, weight: TextStyle['fontWeight'], extra: TextStyle = {}): TextStyle => ({
+// Roboto on Android (system), Google Sans Flex / Roboto Flex on the web.
+const family = Platform.select({ web: '"Google Sans Flex", "Roboto Flex", Roboto, system-ui, sans-serif', default: undefined });
+const t = (size: number, line: number, weight: TextStyle['fontWeight'], spacing = 0): TextStyle => ({
   fontFamily: family,
   fontSize: size,
+  lineHeight: line,
   fontWeight: weight,
-  ...extra,
+  letterSpacing: spacing,
 });
 
-// iOS text styles.
+// M3 type scale (+ emphasized variants for hero moments).
 export const T = {
-  largeTitle: t(34, '700', { letterSpacing: 0.37, lineHeight: 41 }),
-  title2: t(22, '700', { letterSpacing: 0.35, lineHeight: 28 }),
-  title3: t(20, '600', { letterSpacing: 0.38, lineHeight: 25 }),
-  headline: t(17, '600', { letterSpacing: -0.41, lineHeight: 22 }),
-  body: t(17, '400', { letterSpacing: -0.41, lineHeight: 22 }),
-  callout: t(16, '400', { letterSpacing: -0.32, lineHeight: 21 }),
-  subhead: t(15, '400', { letterSpacing: -0.24, lineHeight: 20 }),
-  footnote: t(13, '400', { letterSpacing: -0.08, lineHeight: 18 }),
-  caption: t(12, '400', { lineHeight: 16 }),
-  caption2: t(11, '500', { letterSpacing: 0.07, lineHeight: 13 }),
-  bigNumber: { fontFamily: round, fontSize: 76, fontWeight: '800', letterSpacing: -2, lineHeight: 80, fontVariant: ['tabular-nums'] } as TextStyle,
-  number: { fontFamily: round, fontWeight: '700', fontVariant: ['tabular-nums'] } as TextStyle,
+  displayLarge: t(57, 64, '400', -0.25),
+  displayLargeEmph: t(57, 64, '700', -0.5),
+  displayMedium: t(45, 52, '400'),
+  headlineLarge: t(32, 40, '400'),
+  headlineMedium: t(28, 36, '400'),
+  headlineMediumEmph: t(28, 36, '600'),
+  headlineSmall: t(24, 32, '400'),
+  titleLarge: t(22, 28, '400'),
+  titleLargeEmph: t(22, 28, '600'),
+  titleMedium: t(16, 24, '500', 0.15),
+  titleSmall: t(14, 20, '500', 0.1),
+  bodyLarge: t(16, 24, '400', 0.5),
+  bodyMedium: t(14, 20, '400', 0.25),
+  bodySmall: t(12, 16, '400', 0.4),
+  labelLarge: t(14, 20, '500', 0.1),
+  labelMedium: t(12, 16, '500', 0.5),
+  labelSmall: t(11, 16, '500', 0.5),
+  hero: { ...t(96, 100, '800', -3), fontVariant: ['tabular-nums'] } as TextStyle,
+  num: { fontVariant: ['tabular-nums'] } as TextStyle,
 };
 
-export const R = { card: 12, tile: 14, sheet: 20 };
+// M3 shape scale.
+export const S = { xs: 4, sm: 8, md: 12, lg: 16, lgInc: 20, xl: 28, xlInc: 32, xxl: 48, full: 999 };
 
-const AVATAR_COLORS = ['#FF9500', '#5856D6', '#34C759', '#FF2D55', '#007AFF', '#AF52DE'];
+const AVATAR = ['#E8710A', '#7B5BD6', '#1E8E3E', '#D93F7A', '#0B57D0', '#00897B'];
 export const colorFor = (id: string) => {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  return AVATAR[h % AVATAR.length];
 };

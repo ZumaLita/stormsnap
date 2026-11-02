@@ -4,8 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
-import { Button, PressScale } from '../components/ui';
+import { Button, Icon, Press } from '../components/ui';
 import { T, useTheme } from '../theme';
 import { niceError, postSnap, type Me } from '../api';
 
@@ -34,6 +33,7 @@ export function Camera({
   onPosted: () => void;
 }) {
   const c = useTheme();
+  const styles = React.useMemo(() => mk(c), [c]);
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -102,13 +102,13 @@ export function Camera({
   if (!perm.granted)
     return (
       <View style={[styles.black, styles.center, { padding: 32 }]}>
-        <Ionicons name="camera-outline" size={56} color="rgba(235,235,245,0.6)" />
-        <Text style={[T.title2, { color: '#FFFFFF', textAlign: 'center', marginTop: 16 }]}>Camera access</Text>
-        <Text style={[T.body, { color: 'rgba(235,235,245,0.6)', textAlign: 'center', marginTop: 8 }]}>
+        <Icon name="camera-outline" size={56} color="rgba(235,235,245,0.6)" />
+        <Text style={[T.headlineSmall, { color: '#FFFFFF', textAlign: 'center', marginTop: 16 }]}>Camera access</Text>
+        <Text style={[T.bodyLarge, { color: 'rgba(235,235,245,0.6)', textAlign: 'center', marginTop: 8 }]}>
           StormSnap takes one photo with the back camera and one with the front.
         </Text>
-        <Button title="Allow camera" onPress={requestPerm} style={{ marginTop: 24, alignSelf: 'stretch' }} />
-        <Button title="Not now" kind="plain" onPress={onClose} style={{ marginTop: 6, alignSelf: 'stretch' }} />
+        <Button title="Allow camera" big onPress={requestPerm} style={{ marginTop: 24, alignSelf: 'stretch' }} />
+        <Button title="Not now" variant="text" onPress={onClose} style={{ marginTop: 6, alignSelf: 'stretch' }} />
       </View>
     );
 
@@ -121,11 +121,11 @@ export function Camera({
     <View style={styles.black}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
-          <PressScale onPress={onClose} accessibilityLabel="Close" style={styles.circle}>
-            <Ionicons name="close" size={22} color="#FFFFFF" />
-          </PressScale>
+          <Press onPress={onClose} radius={22} accessibilityLabel="Close" style={styles.circle}>
+            <Icon name="close" size={24} color="#FFFFFF" />
+          </Press>
           <View style={[styles.mode, step === 'front' && { backgroundColor: '#FFD60A' }]}>
-            <Text style={[T.caption2, { color: step === 'front' ? '#000' : '#FFD60A', fontWeight: '700', letterSpacing: 1 }]}>{label}</Text>
+            <Text style={[T.labelMedium, { color: step === 'front' ? '#000' : '#FFD60A', fontWeight: '700', letterSpacing: 1 }]}>{label}</Text>
           </View>
           <View style={{ width: 44 }} />
         </View>
@@ -161,11 +161,11 @@ export function Camera({
         </View>
 
         <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
-          {!!error && <Text style={[T.footnote, { color: '#FF453A', textAlign: 'center' }]}>{error}</Text>}
+          {!!error && <Text style={[T.bodyMedium, { color: '#FF453A', textAlign: 'center' }]}>{error}</Text>}
           {!reviewing ? (
-            <PressScale onPress={shoot} disabled={step !== 'back'} scaleTo={0.9} accessibilityLabel="Take snap" style={styles.shutter}>
+            <Press onPress={shoot} disabled={step !== 'back'} squish={0.88} morph={24} radius={39} accessibilityLabel="Take snap" style={styles.shutter}>
               <View style={styles.shutterInner} />
-            </PressScale>
+            </Press>
           ) : (
             <>
               <TextInput
@@ -174,11 +174,11 @@ export function Camera({
                 placeholder="Add a caption"
                 placeholderTextColor="rgba(235,235,245,0.4)"
                 maxLength={140}
-                style={[styles.caption, T.body]}
+                style={[styles.caption, T.bodyLarge]}
               />
               <View style={styles.row}>
-                <Button title="Retake" kind="gray" icon="refresh" onPress={retake} style={{ flex: 1, backgroundColor: 'rgba(118,118,128,0.3)' }} />
-                <Button title="Post" icon="arrow-up" busy={step === 'posting'} onPress={post} style={{ flex: 1 }} />
+                <Button title="Retake" variant="tonal" icon="refresh" onPress={retake} big style={{ flex: 1 }} />
+                <Button title="Post" icon="send" busy={step === 'posting'} onPress={post} big style={{ flex: 1 }} />
               </View>
             </>
           )}
@@ -188,17 +188,18 @@ export function Camera({
   );
 }
 
-const styles = StyleSheet.create({
+const mk = (c: ReturnType<typeof useTheme>) =>
+  StyleSheet.create({
   black: { flex: 1, backgroundColor: '#000000' },
   center: { alignItems: 'center', justifyContent: 'center' },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 10, maxWidth: 560, width: '100%', alignSelf: 'center' },
   circle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(118,118,128,0.3)', alignItems: 'center', justifyContent: 'center' },
   mode: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(118,118,128,0.3)' },
-  frame: { flex: 1, marginHorizontal: 12, borderRadius: 24, overflow: 'hidden', backgroundColor: '#1C1C1E', maxWidth: 540, width: '94%', alignSelf: 'center' },
+  frame: { flex: 1, marginHorizontal: 12, borderRadius: 28, overflow: 'hidden', backgroundColor: '#1C1C1E', maxWidth: 540, width: '94%', alignSelf: 'center' },
   inset: { position: 'absolute', top: 14, left: 14, width: 104, height: 138, borderRadius: 14, overflow: 'hidden', borderWidth: 2.5, borderColor: '#FFFFFF', backgroundColor: '#2C2C2E' },
   bottom: { paddingTop: 20, paddingHorizontal: 16, alignItems: 'center', gap: 12, maxWidth: 560, width: '100%', alignSelf: 'center' },
   shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  shutterInner: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFFFFF' },
-  caption: { width: '100%', height: 48, borderRadius: 14, paddingHorizontal: 16, backgroundColor: 'rgba(118,118,128,0.24)', color: '#FFFFFF' },
+  shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: c.primaryContainer },
+  caption: { width: '100%', height: 56, borderRadius: 28, paddingHorizontal: 16, backgroundColor: 'rgba(118,118,128,0.24)', color: '#FFFFFF' },
   row: { flexDirection: 'row', gap: 10, width: '100%' },
 });
