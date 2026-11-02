@@ -2,6 +2,16 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, AppState, useColorScheme, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  useFonts,
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import { Caveat_600SemiBold } from '@expo-google-fonts/caveat';
+import { VT323_400Regular } from '@expo-google-fonts/vt323';
 import { TabBar, type Tab } from './src/components/TabBar';
 import { Viewer } from './src/components/Viewer';
 import { Login } from './src/screens/Login';
@@ -32,9 +42,18 @@ import { ACCENTS, ThemeContext, makeTheme, type AccentKey, type Appearance } fro
 import { computeStreak, type StreakRow } from './src/streak';
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    BricolageGrotesque_400Regular,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    BricolageGrotesque_800ExtraBold,
+    Caveat_600SemiBold,
+    VT323_400Regular,
+  });
   const systemDark = useColorScheme() === 'dark';
   const [appearance, setAppearance] = useState<Appearance>('auto');
-  const [accentKey, setAccentKey] = useState<AccentKey>('blue');
+  const [accentKey, setAccentKey] = useState<AccentKey>('storm');
   const theme = useMemo(() => makeTheme(appearance, accentKey, systemDark), [appearance, accentKey, systemDark]);
 
   const [booting, setBooting] = useState(true);
@@ -139,7 +158,7 @@ export default function App() {
     </ThemeContext.Provider>
   );
 
-  if (booting)
+  if (booting || !fontsLoaded)
     return wrap(
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.surface }}>
         <ActivityIndicator color={theme.primary} />
@@ -240,7 +259,7 @@ export default function App() {
           }}
         />
       )}
-      <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} extended={tab === 'home'} />
+      <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
       <Viewer
         key={viewer?.start ?? 'none'}
         snaps={viewerSnaps}

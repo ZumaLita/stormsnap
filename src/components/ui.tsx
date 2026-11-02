@@ -16,7 +16,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { S, T, colorFor, useTheme } from '../theme';
+import { FONTS, S, T, colorFor, useTheme } from '../theme';
 import { photo } from '../api';
 
 export type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -124,12 +124,24 @@ export function Shape({
   );
 }
 
-/** Avatars use the cookie shape. */
+/** Round avatar with a thin print-white ring. */
 export function Avatar({ id, name, size = 40 }: { id: string; name: string; size?: number }) {
+  const c = useTheme();
   return (
-    <Shape kind="cookie" size={size} color={colorFor(id)}>
-      <Text style={{ color: '#FFFFFF', fontSize: size * 0.42, fontWeight: '700' }}>{(name || '?').charAt(0).toUpperCase()}</Text>
-    </Shape>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: colorFor(id),
+        borderWidth: Math.max(2, size / 18),
+        borderColor: c.print,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontSize: size * 0.44, lineHeight: size * 0.56, fontFamily: FONTS.xb }}>{(name || '?').charAt(0).toUpperCase()}</Text>
+    </View>
   );
 }
 

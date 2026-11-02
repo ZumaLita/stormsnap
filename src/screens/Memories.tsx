@@ -40,11 +40,11 @@ export function Memories({
       contentContainerStyle={[styles.wrap, { paddingTop: insets.top, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 104 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[c.primary]} tintColor={c.primary} />}
     >
-      <TopBar title="Memories" />
+      <TopBar title="Kept" />
       <View style={{ marginTop: 8, marginBottom: 16 }}>
         <ButtonGroup
           items={[
-            { key: 'kept', label: 'Kept forever', icon: 'star-outline' },
+            { key: 'kept', label: 'Kept forever', icon: 'pin-outline' },
             { key: 'mine', label: 'My week', icon: 'calendar-week' },
           ]}
           value={view}
@@ -55,7 +55,7 @@ export function Memories({
       {list.length === 0 ? (
         <View style={styles.empty}>
           <Shape kind="clover" size={96} color={c.secondaryContainer}>
-            <Icon name={view === 'kept' ? 'star-outline' : 'image-multiple-outline'} size={40} color={c.onSecondaryContainer} />
+            <Icon name={view === 'kept' ? 'pin-outline' : 'image-multiple-outline'} size={40} color={c.onSecondaryContainer} />
           </Shape>
           <Text style={[T.titleLarge, { color: c.onSurface, marginTop: 16 }]}>{view === 'kept' ? 'Nothing kept yet' : 'No snaps this week'}</Text>
           <Text style={[T.bodyMedium, { color: c.onSurfaceVariant, textAlign: 'center', marginTop: 6, maxWidth: 300 }]}>

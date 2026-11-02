@@ -62,7 +62,7 @@ export function Login({ onDone }: { onDone: (me: Me, code: string) => void }) {
         <Shape kind="burst" size={112} color={c.primaryContainer} style={{ alignSelf: 'center' }}>
           <Icon name="camera" size={48} color={c.onPrimaryContainer} />
         </Shape>
-        <Text style={[T.displayMedium, { color: c.onSurface, textAlign: 'center', marginTop: 24, fontWeight: '700' }]}>StormSnap</Text>
+        <Text style={[T.displayMedium, { color: c.onSurface, textAlign: 'center', marginTop: 24 }]}>StormSnap</Text>
         <Text style={[T.bodyLarge, { color: c.onSurfaceVariant, textAlign: 'center', marginTop: 8, marginBottom: 32 }]}>
           Your family, every hour.{'\n'}Back camera and selfie, together.
         </Text>

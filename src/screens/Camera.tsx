@@ -125,7 +125,7 @@ export function Camera({
             <Icon name="close" size={24} color="#FFFFFF" />
           </Press>
           <View style={[styles.mode, step === 'front' && { backgroundColor: '#FFD60A' }]}>
-            <Text style={[T.labelMedium, { color: step === 'front' ? '#000' : '#FFD60A', fontWeight: '700', letterSpacing: 1 }]}>{label}</Text>
+            <Text style={[T.labelMedium, { color: step === 'front' ? '#000' : '#FFD60A', letterSpacing: 0.5 }]}>{label}</Text>
           </View>
           <View style={{ width: 44 }} />
         </View>

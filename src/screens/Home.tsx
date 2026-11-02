@@ -1,21 +1,66 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, Button, Card, Icon, Press, Shape, SnapImage, TopBar } from '../components/ui';
+import { Avatar, Icon, Press } from '../components/ui';
 import { SnapCard } from '../components/SnapCard';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
-import { S, T, useStyles, useTheme, type Theme } from '../theme';
+import { FONTS, S, T, colorFor, useStyles, useTheme, type Theme } from '../theme';
+import { STREAK_END, STREAK_START } from '../streak';
 import { dayKey, type Me, type Member, type Snap } from '../api';
 
 function dayLabel(day: string) {
-  const today = dayKey();
-  if (day === today) return 'Today';
+  if (day === dayKey()) return 'Today';
   if (day === dayKey(new Date(Date.now() - 864e5))) return 'Yesterday';
   const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 type Item = { type: 'header'; key: string; day: string } | { type: 'snap'; key: string; snap: Snap };
+
+/** Today at a glance: one column per hour, a dot per family member who snapped. */
+function HourRibbon({ snaps, members }: { snaps: Snap[]; members: Member[] }) {
+  const c = useTheme();
+  const today = dayKey();
+  const nowH = new Date().getHours();
+  const hours: number[] = [];
+  for (let h = STREAK_START; h <= STREAK_END; h++) hours.push(h);
+  const who = new Map<number, string[]>();
+  snaps
+    .filter((s) => s.day === today)
+    .forEach((s) => {
+      const list = who.get(s.hour) ?? [];
+      if (!list.includes(s.authorId)) list.push(s.authorId);
+      who.set(s.hour, list);
+    });
+  return (
+    <View style={[ribbon.wrap, { backgroundColor: c.surfaceContainerLow }]}>
+      {hours.map((h) => {
+        const ids = who.get(h) ?? [];
+        const now = h === nowH;
+        return (
+          <View key={h} style={ribbon.col}>
+            <View style={[ribbon.slot, { backgroundColor: now ? c.secondaryContainer : 'transparent' }]}>
+              {members.map((m) => (
+                <View
+                  key={m.id}
+                  style={[
+                    ribbon.dot,
+                    {
+                      backgroundColor: ids.includes(m.id) ? colorFor(m.id) : h > nowH ? 'transparent' : c.surfaceContainerHigh,
+                      borderColor: c.outlineVariant,
+                      borderWidth: h > nowH ? 1 : 0,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <Text style={[T.labelSmall, T.num, { color: now ? c.primary : c.onSurfaceVariant, fontFamily: now ? FONTS.xb : FONTS.sb }]}>{h}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 export function Home({
   me,
@@ -46,13 +91,9 @@ export function Home({
   const s = useStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const today = dayKey();
+  const nowH = new Date().getHours();
   const [filter, setFilter] = useState<string | null>(null);
-
-  const latestBy = useMemo(() => {
-    const m = new Map<string, Snap>();
-    snaps.forEach((x) => !m.has(x.authorId) && m.set(x.authorId, x));
-    return m;
-  }, [snaps]);
+  const family = members.length ? members : [{ id: me.id, name: me.name }];
 
   const items = useMemo(() => {
     const list = filter ? snaps.filter((x) => x.authorId === filter) : snaps;
@@ -68,75 +109,48 @@ export function Home({
     return out;
   }, [snaps, filter]);
 
-  const meSnappedToday = snaps.some((x) => x.authorId === me.id && x.day === today);
-  const others = members.filter((m) => m.id !== me.id);
+  const snappedThisHour = snaps.some((x) => x.authorId === me.id && x.day === today && x.hour === nowH);
 
   const header = (
     <View>
-      <TopBar
-        title="StormSnap"
-        overline={new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-        actions={
-          <Press onPress={onStreaks} radius={S.sm} accessibilityLabel={`Streak ${streak} hours`} style={[s.chip, { backgroundColor: streak > 0 ? c.fireContainer : c.surfaceContainerHigh }]}>
-            <Icon name="fire" size={18} color={streak > 0 ? c.onFireContainer : c.onSurfaceVariant} />
-            <Text style={[T.labelLarge, T.num, { color: streak > 0 ? c.onFireContainer : c.onSurfaceVariant }]}>{streak}</Text>
-          </Press>
-        }
-      />
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.stories} style={{ marginHorizontal: -16 }}>
-        <Press onPress={onSnap} radius={S.lgInc} morph={S.xl} accessibilityLabel="Your snap" style={[s.story, { backgroundColor: c.primaryContainer, alignItems: 'center', justifyContent: 'center' }]}>
-          <Shape kind="burst" size={52} color={c.primary}>
-            <Icon name="camera-plus" size={24} color={c.onPrimary} />
-          </Shape>
-          <Text style={[T.labelLarge, { color: c.onPrimaryContainer, marginTop: 8 }]}>Your snap</Text>
+      <View style={s.top}>
+        <Text style={[s.wordmark, { color: c.onSurface }]}>StormSnap</Text>
+        <Press onPress={onStreaks} radius={S.full} accessibilityLabel={`Streak ${streak} hours`} style={[s.streak, { backgroundColor: streak > 0 ? c.fireContainer : c.surfaceContainerLow }]}>
+          <Icon name="fire" size={20} color={streak > 0 ? c.fire : c.outline} />
+          <Text style={[T.titleMedium, T.num, { color: streak > 0 ? c.onFireContainer : c.onSurfaceVariant }]}>{streak}</Text>
         </Press>
-        {others.map((m) => {
-          const last = latestBy.get(m.id);
-          const on = filter === m.id;
+      </View>
+
+      <HourRibbon snaps={snaps} members={family} />
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.people} style={{ marginHorizontal: -20 }}>
+        {[{ id: '', name: 'Everyone' }, ...family].map((m) => {
+          const on = (filter ?? '') === m.id;
           return (
             <Press
-              key={m.id}
-              onPress={() => setFilter(on ? null : m.id)}
-              radius={S.lgInc}
-              morph={S.xl}
-              accessibilityLabel={`Only ${m.name}`}
+              key={m.id || 'all'}
+              onPress={() => setFilter(m.id || null)}
+              radius={S.full}
               accessibilityState={{ selected: on }}
-              style={[s.story, on && { borderWidth: 3, borderColor: c.primary }]}
+              style={[s.person, { backgroundColor: on ? c.onSurface : c.surfaceContainerLow }]}
             >
-              {last ? <SnapImage fileId={last.backId} style={StyleSheet.absoluteFill as never} /> : <View style={[StyleSheet.absoluteFill, { backgroundColor: c.surfaceContainerHigh }]} />}
-              <View style={{ position: 'absolute', top: 8, left: 8 }}>
-                <Avatar id={m.id} name={m.name} size={30} />
-              </View>
-              <View style={s.storyLabel}>
-                <Text style={[T.labelMedium, { color: '#FFFFFF', textAlign: 'center' }]} numberOfLines={1}>
-                  {m.name}
-                </Text>
-              </View>
+              {m.id ? <Avatar id={m.id} name={m.name} size={26} /> : <Icon name="account-group" size={20} color={on ? c.surface : c.onSurface} />}
+              <Text style={[T.labelLarge, { color: on ? c.surface : c.onSurface }]}>{m.id === me.id ? 'You' : m.name}</Text>
             </Press>
           );
         })}
       </ScrollView>
 
-      {filter && (
-        <Press onPress={() => setFilter(null)} radius={S.sm} style={[s.filterChip, { backgroundColor: c.secondaryContainer }]}>
-          <Icon name="check" size={18} color={c.onSecondaryContainer} />
-          <Text style={[T.labelLarge, { color: c.onSecondaryContainer }]}>Only {members.find((m) => m.id === filter)?.name}</Text>
-          <Icon name="close" size={18} color={c.onSecondaryContainer} />
+      {!snappedThisHour && !filter && (
+        <Press onPress={onSnap} radius={6} squish={0.97} accessibilityLabel={`Take your ${nowH}u snap`} style={[s.empty, { borderColor: c.outline }]}>
+          <View style={[s.emptyIcon, { backgroundColor: c.primary }]}>
+            <Icon name="camera" size={28} color={c.onPrimary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[T.titleLarge, { color: c.onSurface }]}>Your {nowH}u print is empty</Text>
+            <Text style={[T.bodyMedium, { color: c.onSurfaceVariant }]}>Tap to snap. Skipping is fine too.</Text>
+          </View>
         </Press>
-      )}
-
-      {!meSnappedToday && !filter && (
-        <Card style={[s.hero, { backgroundColor: c.primaryContainer }]}>
-          <Shape kind="burst" size={80} color={c.primary}>
-            <Icon name="camera" size={34} color={c.onPrimary} />
-          </Shape>
-          <Text style={[T.headlineSmall, { color: c.onPrimaryContainer, marginTop: 14, fontWeight: '600' }]}>What are you up to?</Text>
-          <Text style={[T.bodyMedium, { color: c.onPrimaryContainer, textAlign: 'center', marginTop: 4, opacity: 0.85 }]}>
-            Back camera, then a quick selfie. Skipping is always fine.
-          </Text>
-          <Button title="Take a snap" icon="camera" big onPress={onSnap} style={{ marginTop: 18 }} />
-        </Card>
       )}
     </View>
   );
@@ -144,44 +158,43 @@ export function Home({
   return (
     <FlatList
       style={{ flex: 1, backgroundColor: c.surface }}
-      contentContainerStyle={[s.wrap, { paddingTop: insets.top, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 104 }]}
+      contentContainerStyle={[s.wrap, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + TAB_BAR_HEIGHT + 40 }]}
       data={items}
       keyExtractor={(it) => it.key}
       ListHeaderComponent={header}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[c.primary]} progressBackgroundColor={c.surfaceContainerHigh} tintColor={c.primary} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[c.primary]} tintColor={c.primary} />}
       ListEmptyComponent={
-        meSnappedToday || filter ? (
-          <View style={{ alignItems: 'center', marginTop: 48 }}>
-            <Icon name="image-multiple-outline" size={40} color={c.outline} />
-            <Text style={[T.bodyLarge, { color: c.onSurfaceVariant, marginTop: 8 }]}>No snaps yet</Text>
-          </View>
-        ) : undefined
+        <Text style={[T.bodyLarge, { color: c.onSurfaceVariant, textAlign: 'center', marginTop: 40 }]}>
+          {filter ? 'No snaps from them this week.' : 'No snaps yet this week.'}
+        </Text>
       }
       renderItem={({ item }) =>
         item.type === 'header' ? (
-          <Text style={[T.titleSmall, s.dayHeader, { color: c.primary }]}>{dayLabel(item.day)}</Text>
+          <Text style={[T.headlineSmall, s.day, { color: c.onSurface }]}>{dayLabel(item.day)}</Text>
         ) : (
-          <SnapCard
-            snap={item.snap}
-            meId={me.id}
-            onReact={(e) => onReact(item.snap, e)}
-            onKeep={() => onKeep(item.snap)}
-            onDelete={() => onDelete(item.snap)}
-          />
+          <SnapCard snap={item.snap} meId={me.id} onReact={(e) => onReact(item.snap, e)} onKeep={() => onKeep(item.snap)} onDelete={() => onDelete(item.snap)} />
         )
       }
     />
   );
 }
 
+const ribbon = StyleSheet.create({
+  wrap: { flexDirection: 'row', borderRadius: S.lgInc, paddingVertical: 10, paddingHorizontal: 6, marginTop: 14 },
+  col: { flex: 1, alignItems: 'center', gap: 6 },
+  slot: { alignItems: 'center', gap: 3, paddingVertical: 5, width: '86%', borderRadius: 10 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+});
+
 const makeStyles = (c: Theme) =>
   StyleSheet.create({
-    wrap: { paddingHorizontal: 16, maxWidth: 640, width: '100%', alignSelf: 'center' },
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 12 },
-    stories: { gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
-    story: { width: 100, height: 132, borderRadius: S.lgInc, overflow: 'hidden' },
-    storyLabel: { position: 'absolute', left: 6, right: 6, bottom: 6, backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: S.sm, paddingVertical: 3 },
-    filterChip: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 8, height: 32, paddingHorizontal: 10, marginBottom: 4 },
-    hero: { padding: 24, alignItems: 'center', marginTop: 4, marginBottom: 4 },
-    dayHeader: { marginTop: 20, marginBottom: 10, marginLeft: 4 },
+    wrap: { paddingHorizontal: 20, maxWidth: 600, width: '100%', alignSelf: 'center' },
+    top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 56 },
+    wordmark: { fontFamily: FONTS.xb, fontSize: 34, lineHeight: 38, letterSpacing: -1.4 },
+    streak: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14 },
+    people: { gap: 8, paddingHorizontal: 20, paddingVertical: 14 },
+    person: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingLeft: 7, paddingRight: 14 },
+    empty: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 2, borderStyle: 'dashed', marginBottom: 8 },
+    emptyIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+    day: { marginTop: 18, marginBottom: 18 },
   });

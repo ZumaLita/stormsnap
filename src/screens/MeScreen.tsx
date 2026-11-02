@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, ButtonGroup, Card, Icon, IconButton, ListItem, SectionLabel, Switch, TopBar, haptic } from '../components/ui';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { ACCENTS, ACCENT_ORDER, S, T, useStyles, useTheme, type AccentKey, type Appearance, type Theme } from '../theme';
-import { SCHEMES } from '../schemes';
 import { changePin, niceError, type Me, type Snap } from '../api';
 import { remindersSupported } from '../notify';
 
@@ -88,7 +87,7 @@ export function MeScreen({
       <Card style={[s.profile, { backgroundColor: c.secondaryContainer }]}>
         <Avatar id={me.id} name={me.name} size={72} />
         <View style={{ flex: 1 }}>
-          <Text style={[T.headlineSmall, { color: c.onSecondaryContainer, fontWeight: '600' }]}>{me.name}</Text>
+          <Text style={[T.headlineSmall, { color: c.onSecondaryContainer }]}>{me.name}</Text>
           <Text style={[T.bodyMedium, { color: c.onSecondaryContainer, opacity: 0.8 }]}>Family {code.toUpperCase()}</Text>
         </View>
       </Card>
@@ -101,7 +100,7 @@ export function MeScreen({
         ].map(([n, l, icon]) => (
           <Card key={String(l)} tone="base" style={s.stat}>
             <Icon name={icon as never} size={20} color={c.primary} />
-            <Text style={[T.headlineSmall, T.num, { color: c.onSurface, fontWeight: '600', marginTop: 6 }]}>{n}</Text>
+            <Text style={[T.headlineSmall, T.num, { color: c.onSurface, marginTop: 6 }]}>{n}</Text>
             <Text style={[T.labelMedium, { color: c.onSurfaceVariant }]}>{l}</Text>
           </Card>
         ))}
@@ -122,7 +121,7 @@ export function MeScreen({
         <View style={s.swatches}>
           {ACCENT_ORDER.map((k) => {
             const on = k === accentKey;
-            const sc = SCHEMES[k][c.dark ? 'dark' : 'light'];
+            const col = ACCENTS[k][c.dark ? 'dark' : 'light'];
             return (
               <Pressable
                 key={k}
@@ -132,18 +131,9 @@ export function MeScreen({
                 }}
                 accessibilityLabel={`${ACCENTS[k].name} colour`}
                 accessibilityState={{ selected: on }}
-                style={[s.swatch, { backgroundColor: sc.surfaceContainerHighest, borderRadius: on ? S.lg : 28 }]}
+                style={[s.swatch, { backgroundColor: col, borderRadius: on ? S.lg : 28, borderWidth: 3, borderColor: on ? c.onSurface : 'transparent' }]}
               >
-                <View style={[s.swatchTop, { backgroundColor: sc.primary }]} />
-                <View style={s.swatchBottom}>
-                  <View style={{ flex: 1, backgroundColor: sc.secondaryContainer }} />
-                  <View style={{ flex: 1, backgroundColor: sc.tertiaryContainer }} />
-                </View>
-                {on && (
-                  <View style={[s.swatchCheck, { backgroundColor: sc.primary }]}>
-                    <Icon name="check" size={16} color={sc.onPrimary} />
-                  </View>
-                )}
+                {on && <Icon name="check" size={22} color={c.dark ? '#0E1322' : '#FFFFFF'} />}
               </Pressable>
             );
           })}
@@ -195,7 +185,7 @@ const makeStyles = (c: Theme) =>
     stats: { flexDirection: 'row', gap: 8, marginTop: 8 },
     stat: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: S.lgInc },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    swatch: { width: 56, height: 56, overflow: 'hidden' },
+    swatch: { width: 52, height: 52, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     swatchTop: { height: 28 },
     swatchBottom: { flexDirection: 'row', height: 28 },
     swatchCheck: { position: 'absolute', top: 14, left: 14, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
