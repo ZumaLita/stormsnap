@@ -49,11 +49,13 @@ export function SnapCard({
   const tilt = tiltFor(snap.$id);
   const kept = snap.keptBy.includes(meId);
   const mine = snap.reactions.find((r) => r.startsWith(meId + ':'))?.split(':')[1];
+  const liked = mine === '❤️';
   const counts = new Map<string, number>();
   snap.reactions.forEach((r) => {
     const e = r.split(':')[1];
     counts.set(e, (counts.get(e) ?? 0) + 1);
   });
+  const others = snap.reactions.length - (counts.get('❤️') ?? 0);
 
   const confirmDelete = () => {
     if (Platform.OS === 'web') {
@@ -108,36 +110,41 @@ export function SnapCard({
 
       <View style={styles.actions}>
         <Press
+          onPress={() => onReact('❤️')}
+          radius={S.full}
+          squish={0.85}
+          accessibilityLabel={liked ? 'Unlike' : 'Like'}
+          style={[styles.pill, { backgroundColor: c.surfaceContainerLow, borderColor: liked ? '#FF3B5C' : c.outlineVariant }]}
+        >
+          <Icon name={liked ? 'heart' : 'heart-outline'} size={21} color={liked ? '#FF3B5C' : c.onSurface} />
+          <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{counts.get('❤️') ?? 0}</Text>
+        </Press>
+        <Press
           onPress={() => setPicker((p) => !p)}
           radius={S.full}
-          accessibilityLabel="React"
-          style={[styles.pill, { backgroundColor: mine ? c.secondaryContainer : c.surfaceContainerLow }]}
+          squish={0.85}
+          accessibilityLabel="React with an emoji"
+          style={[styles.pill, { backgroundColor: c.surfaceContainerLow, borderColor: mine && mine !== '❤️' ? c.primary : c.outlineVariant }]}
         >
-          {mine ? <Text style={styles.emojiSm}>{mine}</Text> : <Icon name="emoticon-happy-outline" size={20} color={c.onSurface} />}
-          <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{snap.reactions.length || 'React'}</Text>
+          {mine && mine !== '❤️' ? <Text style={styles.emojiSm}>{mine}</Text> : <Icon name="emoticon-happy-outline" size={21} color={c.onSurface} />}
+          <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{others}</Text>
         </Press>
-        <View style={styles.counts}>
-          {[...counts.entries()].slice(0, 4).map(([e, n]) => (
-            <Text key={e} style={[T.labelLarge, { color: c.onSurfaceVariant }]}>
-              {e}
-              {n > 1 ? n : ''}
-            </Text>
-          ))}
-        </View>
+        <View style={{ flex: 1 }} />
         <Press
           onPress={onKeep}
           radius={S.full}
-          accessibilityLabel={kept ? 'Remove from memories' : 'Keep forever'}
-          style={[styles.pill, { backgroundColor: kept ? c.tertiaryContainer : c.surfaceContainerLow }]}
+          squish={0.85}
+          accessibilityLabel={kept ? 'Remove from kept' : 'Keep forever'}
+          style={[styles.pill, { backgroundColor: c.surfaceContainerLow, borderColor: kept ? c.fire : c.outlineVariant }]}
         >
-          <Icon name={kept ? 'pin' : 'pin-outline'} size={19} color={kept ? c.onTertiaryContainer : c.onSurface} />
-          <Text style={[T.labelLarge, { color: kept ? c.onTertiaryContainer : c.onSurface }]}>{kept ? 'Kept' : 'Keep'}</Text>
+          <Icon name={kept ? 'bookmark' : 'bookmark-outline'} size={21} color={kept ? c.fire : c.onSurface} />
+          <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{snap.keptBy.length}</Text>
         </Press>
       </View>
 
       {picker && (
         <View style={[styles.picker, { backgroundColor: c.surfaceContainerLow }]}>
-          {REACTIONS.map((e) => (
+          {REACTIONS.filter((e) => e !== '❤️').map((e) => (
             <Press
               key={e}
               onPress={() => {
@@ -197,8 +204,7 @@ const styles = StyleSheet.create({
   tape: { position: 'absolute', top: -9, alignSelf: 'center', width: 54, height: 18, borderRadius: 2, transform: [{ rotate: '3deg' }], zIndex: 2 },
   caption: { paddingHorizontal: 6, paddingTop: 10, paddingBottom: 14, minHeight: 50 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'stretch', marginTop: 16, paddingHorizontal: 4 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 14 },
-  counts: { flex: 1, flexDirection: 'row', gap: 8 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 44, paddingHorizontal: 16, borderWidth: 1.5 },
   emojiSm: { fontSize: 17 },
   picker: { flexDirection: 'row', justifyContent: 'space-around', alignSelf: 'stretch', marginTop: 10, borderRadius: S.full, padding: 4 },
   emoji: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },

@@ -15,7 +15,7 @@ export const KEEP_DAYS = 7;
 export const DEFAULT_START_HOUR = 8;
 export const DEFAULT_END_HOUR = 21;
 
-export const REACTIONS = ['❤️', '😂', '😮', '🔥', '👏'];
+export const REACTIONS = ['❤️', '😂', '😍', '😮', '🔥', '👏'];
 
 /** Turns a name or code into a safe slug: "Mama Gees" -> "mama-gees". */
 export const slug = (s: string) =>

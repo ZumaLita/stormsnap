@@ -1,70 +1,68 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FONTS, T, useTheme } from '../theme';
-import { Icon, Press, haptic, type IconName } from './ui';
+import { useTheme } from '../theme';
+import { Icon, Press, type IconName } from './ui';
 
 export type Tab = 'home' | 'streaks' | 'memories' | 'me';
 
-const LEFT: { key: Tab; icon: IconName; on: IconName; label: string }[] = [
-  { key: 'home', icon: 'image-filter-hdr', on: 'image-filter-hdr', label: 'Feed' },
+const ITEMS: { key: Tab | 'snap'; icon: IconName; on: IconName; label: string }[] = [
+  { key: 'home', icon: 'home-outline', on: 'home', label: 'Feed' },
   { key: 'streaks', icon: 'fire', on: 'fire', label: 'Streaks' },
-];
-const RIGHT: { key: Tab; icon: IconName; on: IconName; label: string }[] = [
+  { key: 'snap', icon: 'camera-iris', on: 'camera-iris', label: 'Take a snap' },
   { key: 'memories', icon: 'pin-outline', on: 'pin', label: 'Kept' },
-  { key: 'me', icon: 'account-circle-outline', on: 'account-circle', label: 'Me' },
+  { key: 'me', icon: 'account-outline', on: 'account', label: 'Me' },
 ];
 
 export const TAB_BAR_HEIGHT = 72;
 
+/** Floating round menu bar: a dark pill with round buttons, the active one turns white. */
 export function TabBar({ tab, onTab, onSnap }: { tab: Tab; onTab: (t: Tab) => void; onSnap: () => void; extended?: boolean }) {
   const c = useTheme();
   const insets = useSafeAreaInsets();
-  const item = (it: (typeof LEFT)[number]) => {
-    const on = it.key === tab;
-    return (
-      <Pressable
-        key={it.key}
-        onPress={() => {
-          if (!on) haptic();
-          onTab(it.key);
-        }}
-        accessibilityRole="tab"
-        accessibilityLabel={it.label}
-        accessibilityState={{ selected: on }}
-        style={styles.item}
-      >
-        <Icon name={on ? it.on : it.icon} size={25} color={on ? c.onSurface : c.outline} />
-        <Text style={[T.labelSmall, { color: on ? c.onSurface : c.outline, fontFamily: on ? FONTS.xb : FONTS.sb, marginTop: 2 }]}>{it.label}</Text>
-        <View style={[styles.mark, { backgroundColor: on ? c.primary : 'transparent' }]} />
-      </Pressable>
-    );
-  };
   return (
-    <View style={[styles.bar, { backgroundColor: c.surfaceContainerLow, paddingBottom: insets.bottom, borderTopColor: c.outlineVariant }]}>
-      <View style={styles.row}>
-        {LEFT.map(item)}
-        <View style={[styles.item, { justifyContent: 'flex-start' }]}>
-          <View style={styles.lift}>
-          <Press onPress={onSnap} radius={34} squish={0.88} accessibilityLabel="Take a snap" accessibilityRole="button" style={[styles.shutter, { borderColor: c.onSurface, backgroundColor: c.surfaceContainerLow }]}>
-            <View style={[styles.shutterInner, { backgroundColor: c.primary }]}>
-              <Icon name="camera-iris" size={28} color={c.onPrimary} />
-            </View>
-          </Press>
-          </View>
-        </View>
-        {RIGHT.map(item)}
+    <View style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) + 6 }]} pointerEvents="box-none">
+      <View style={[styles.pill, { borderColor: c.dark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)' }]}>
+        {ITEMS.map((it) => {
+          const snap = it.key === 'snap';
+          const on = it.key === tab;
+          const bg = snap ? c.primary : on ? '#FFFFFF' : '#26262B';
+          const fg = snap ? c.onPrimary : on ? '#111114' : '#FFFFFF';
+          return (
+            <Press
+              key={it.key}
+              onPress={() => (snap ? onSnap() : onTab(it.key as Tab))}
+              radius={28}
+              squish={0.88}
+              accessibilityRole={snap ? 'button' : 'tab'}
+              accessibilityLabel={it.label}
+              accessibilityState={snap ? undefined : { selected: on }}
+              style={[styles.btn, { backgroundColor: bg }, on && styles.btnOn]}
+            >
+              <Icon name={on ? it.on : it.icon} size={24} color={fg} />
+            </Press>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth },
-  row: { flexDirection: 'row', alignItems: 'center', height: TAB_BAR_HEIGHT, maxWidth: 600, width: '100%', alignSelf: 'center' },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'center', height: TAB_BAR_HEIGHT },
-  mark: { width: 18, height: 3, borderRadius: 2, marginTop: 4 },
-  shutter: { width: 68, height: 68, borderRadius: 34, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
-  lift: { marginTop: -22, borderRadius: 34, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  shutterInner: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
+  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  pill: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 6,
+    borderRadius: 40,
+    backgroundColor: '#111114',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  btn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  btnOn: { borderWidth: 3, borderColor: '#111114' },
 });
