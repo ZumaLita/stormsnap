@@ -14,6 +14,7 @@ import { Caveat_600SemiBold } from '@expo-google-fonts/caveat';
 import { VT323_400Regular } from '@expo-google-fonts/vt323';
 import { TabBar, type Tab } from './src/components/TabBar';
 import { Viewer } from './src/components/Viewer';
+import { CommentsSheet } from './src/components/Comments';
 import { Login } from './src/screens/Login';
 import { Home } from './src/screens/Home';
 import { Streaks } from './src/screens/Streaks';
@@ -29,6 +30,8 @@ import {
   listKeptSnaps,
   listMembers,
   listRecentSnaps,
+  listComments,
+  type Comment,
   listStreakRows,
   getPrefs,
   savePrefs,
@@ -69,6 +72,8 @@ export default function App() {
   const [snaps, setSnaps] = useState<Snap[]>([]);
   const [kept, setKept] = useState<Snap[]>([]);
   const [streakRows, setStreakRows] = useState<StreakRow[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsFor, setCommentsFor] = useState<Snap | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reminders, setReminders] = useState(true);
   const [start, setStart] = useState(DEFAULT_START_HOUR);
@@ -113,6 +118,9 @@ export default function App() {
       setMembers(m);
       setSnaps(s);
       setKept(k);
+      listComments([...new Set([...s, ...k].map((x) => x.$id))])
+        .then(setComments)
+        .catch(() => {});
       if (sr) setStreakRows(sr);
     } catch (e) {
       console.warn('load failed', e);
@@ -157,6 +165,12 @@ export default function App() {
     return m;
   }, [snaps, kept]);
   const viewerSnaps = viewer ? viewer.ids.map((id) => allById.get(id)).filter((s): s is Snap => !!s) : [];
+
+  const commentsBySnap = useMemo(() => {
+    const m = new Map<string, Comment[]>();
+    comments.forEach((c) => m.set(c.snapId, [...(m.get(c.snapId) ?? []), c]));
+    return m;
+  }, [comments]);
 
   const replace = (s: Snap) => {
     setSnaps((all) => all.map((x) => (x.$id === s.$id ? s : x)));
@@ -258,6 +272,8 @@ export default function App() {
           onRefresh={load}
           onSnap={() => setCamera(true)}
           onStreaks={() => setTab('streaks')}
+          comments={commentsBySnap}
+          onComments={setCommentsFor}
           onReact={async (s, e) => replace(await react(s, me.id, e))}
           onKeep={async (s) => replace(await toggleKeep(s, me.id))}
           onDelete={async (s) => {
@@ -318,6 +334,15 @@ export default function App() {
         />
       )}
       <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
+      {commentsFor && (
+        <CommentsSheet
+          me={me}
+          snap={commentsFor}
+          comments={commentsBySnap.get(commentsFor.$id) ?? []}
+          onClose={() => setCommentsFor(null)}
+          onChange={(next) => setComments((all) => [...all.filter((c) => c.snapId !== commentsFor.$id), ...next])}
+        />
+      )}
       <Viewer
         key={viewer?.start ?? 'none'}
         snaps={viewerSnaps}

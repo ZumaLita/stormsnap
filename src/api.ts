@@ -239,3 +239,59 @@ export async function savePrefs(p: Prefs) {
     await account.updatePrefs({ prefs: { ...cur, ...p } });
   } catch {}
 }
+
+// ---------- comments ----------
+// One level only: you can reply to a comment, but not to a reply. Everyone can like any comment.
+export type Comment = {
+  $id: string;
+  $createdAt: string;
+  snapId: string;
+  authorId: string;
+  authorName: string;
+  text: string;
+  parentId?: string | null;
+  likes: string[];
+};
+const COMMENTS_TABLE = 'comments';
+
+export async function listComments(snapIds: string[]): Promise<Comment[]> {
+  if (!snapIds.length) return [];
+  const out: Comment[] = [];
+  for (let i = 0; i < snapIds.length; i += 100) {
+    const r = await tables.listRows({
+      databaseId: DB_ID,
+      tableId: COMMENTS_TABLE,
+      queries: [Query.equal('snapId', snapIds.slice(i, i + 100)), Query.orderAsc('$createdAt'), Query.limit(1000)],
+    });
+    out.push(...(r.rows as unknown as Comment[]));
+  }
+  return out;
+}
+
+export async function addComment(me: Me, snapId: string, text: string, parent: Comment | null): Promise<Comment> {
+  // Replies always hang under the top comment, so there are never replies to replies.
+  const parentId = parent ? parent.parentId || parent.$id : null;
+  const row = await tables.createRow({
+    databaseId: DB_ID,
+    tableId: COMMENTS_TABLE,
+    rowId: ID.unique(),
+    data: { snapId, authorId: me.id, authorName: me.name, text: text.trim().slice(0, 300), parentId, likes: [] },
+    permissions: [Permission.read(familyRead), Permission.update(familyRead), Permission.delete(Role.user(me.id))],
+  });
+  return row as unknown as Comment;
+}
+
+export async function toggleCommentLike(c: Comment, userId: string): Promise<Comment> {
+  const liked = c.likes.includes(userId);
+  const row = await tables.updateRow({
+    databaseId: DB_ID,
+    tableId: COMMENTS_TABLE,
+    rowId: c.$id,
+    data: { likes: liked ? c.likes.filter((x) => x !== userId) : [...c.likes, userId] },
+  });
+  return row as unknown as Comment;
+}
+
+export async function deleteComment(c: Comment) {
+  await tables.deleteRow({ databaseId: DB_ID, tableId: COMMENTS_TABLE, rowId: c.$id });
+}

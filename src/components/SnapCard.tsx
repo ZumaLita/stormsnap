@@ -4,7 +4,7 @@ import { Avatar, Icon, IconButton, Press, SnapImage } from './ui';
 import { Print, isPhotoStyle } from './Print';
 import { FONTS, S, T, useTheme } from '../theme';
 import { REACTIONS } from '../config';
-import type { Snap } from '../api';
+import type { Comment, Snap } from '../api';
 
 const ago = (iso: string) => {
   const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -19,7 +19,11 @@ export function SnapCard({
   onReact,
   onKeep,
   onDelete,
+  comments = [],
+  onComments,
 }: {
+  comments?: Comment[];
+  onComments?: () => void;
   snap: Snap;
   meId: string;
   onReact: (emoji: string) => void;
@@ -93,6 +97,16 @@ export function SnapCard({
           {mine && mine !== '❤️' ? <Text style={styles.emojiSm}>{mine}</Text> : <Icon name="emoticon-happy-outline" size={21} color={c.onSurface} />}
           <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{others}</Text>
         </Press>
+        <Press
+          onPress={onComments}
+          radius={S.full}
+          squish={0.85}
+          accessibilityLabel={`Comments: ${comments.length}`}
+          style={[styles.pill, { backgroundColor: c.surfaceContainerLow, borderColor: c.outlineVariant }]}
+        >
+          <Icon name="comment-outline" size={21} color={c.onSurface} />
+          <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{comments.length}</Text>
+        </Press>
         <View style={{ flex: 1 }} />
         <Press
           onPress={onKeep}
@@ -105,6 +119,20 @@ export function SnapCard({
           <Text style={[T.labelLarge, T.num, { color: c.onSurface }]}>{snap.keptBy.length}</Text>
         </Press>
       </View>
+
+      {comments.some((x) => !x.parentId) && (
+        <Pressable onPress={onComments} style={styles.preview} accessibilityLabel="Open comments">
+          {(() => {
+            const last = [...comments].reverse().find((x) => !x.parentId)!;
+            return (
+              <Text style={[T.bodyMedium, { color: c.onSurface }]} numberOfLines={2}>
+                <Text style={{ fontFamily: FONTS.b }}>{last.authorId === meId ? 'You' : last.authorName}</Text>  {last.text}
+              </Text>
+            );
+          })()}
+          {comments.length > 1 && <Text style={[T.labelLarge, { color: c.onSurfaceVariant, marginTop: 3 }]}>View all {comments.length} comments</Text>}
+        </Pressable>
+      )}
 
       {picker && (
         <View style={[styles.picker, { backgroundColor: c.surfaceContainerLow }]}>
@@ -131,6 +159,7 @@ export function SnapCard({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', marginBottom: 36 },
+  preview: { alignSelf: 'stretch', paddingHorizontal: 6, paddingTop: 10 },
   byline: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch', paddingHorizontal: 4, marginBottom: 12, minHeight: 40 },
   print: {
     padding: 10,

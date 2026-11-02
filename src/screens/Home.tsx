@@ -6,7 +6,7 @@ import { SnapCard } from '../components/SnapCard';
 import { TAB_BAR_HEIGHT } from '../components/TabBar';
 import { FONTS, S, T, colorFor, useStyles, useTheme, type Theme } from '../theme';
 import { STREAK_END, STREAK_START } from '../streak';
-import { dayKey, type Me, type Member, type Snap } from '../api';
+import { dayKey, type Me, type Member, type Snap , type Comment } from '../api';
 
 function dayLabel(day: string) {
   if (day === dayKey()) return 'Today';
@@ -74,7 +74,11 @@ export function Home({
   onReact,
   onKeep,
   onDelete,
+  comments,
+  onComments,
 }: {
+  comments: Map<string, Comment[]>;
+  onComments: (s: Snap) => void;
   me: Me;
   members: Member[];
   snaps: Snap[];
@@ -175,7 +179,7 @@ export function Home({
         item.type === 'header' ? (
           <Text style={[T.headlineSmall, s.day, { color: c.onSurface }]}>{dayLabel(item.day)}</Text>
         ) : (
-          <SnapCard snap={item.snap} meId={me.id} onReact={(e) => onReact(item.snap, e)} onKeep={() => onKeep(item.snap)} onDelete={() => onDelete(item.snap)} />
+          <SnapCard snap={item.snap} meId={me.id} onReact={(e) => onReact(item.snap, e)} onKeep={() => onKeep(item.snap)} onDelete={() => onDelete(item.snap)} comments={comments.get(item.snap.$id)} onComments={() => onComments(item.snap)} />
         )
       }
     />
