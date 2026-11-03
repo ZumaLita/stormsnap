@@ -10,6 +10,10 @@ import { niceError, postSnap, type Me } from '../api';
 
 type Step = 'back' | 'front' | 'review' | 'posting';
 
+/** How the selfie is taken after the back photo: by itself after a few seconds, or with the button within 20 seconds. */
+export type SelfieMode = { mode: 'auto' | 'button'; delay: number };
+export const SELFIE_BUTTON_SECONDS = 20;
+
 async function shrink(uri: string, width: number) {
   try {
     const ctx = ImageManipulator.manipulate(uri).resize({ width });
@@ -27,7 +31,9 @@ export function Camera({
   photoStyle,
   onClose,
   onPosted,
+  selfie = { mode: 'auto', delay: 0 },
 }: {
+  selfie?: SelfieMode;
   me: Me;
   onTime: boolean;
   photoStyle: string;
@@ -48,6 +54,16 @@ export function Camera({
   const [caption, setCaption] = useState('');
   const [error, setError] = useState('');
   const [kb, setKb] = useState(0);
+  // Seconds left: the auto countdown, or the time left to press the button.
+  const [count, setCount] = useState<number | null>(null);
+  const [frontReady, setFrontReady] = useState(false);
+  const backUri = useRef<string | null>(null);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTimer = () => {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+  };
+  useEffect(() => stopTimer, []);
 
   // Keep the caption and send button above the keyboard.
   useEffect(() => {
@@ -65,24 +81,68 @@ export function Camera({
       setTimeout(res, 1600);
     });
 
+  const finish = async (frontUri: string) => {
+    stopTimer();
+    setCount(null);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const [bs, fs] = await Promise.all([shrink(backUri.current!, 1080), shrink(frontUri, 720)]);
+    setBack(bs);
+    setFront(fs);
+    setStep('review');
+  };
+
+  const takeFront = async () => {
+    try {
+      const f = await cam.current!.takePictureAsync({ quality: 0.8 });
+      await finish(f.uri);
+    } catch (e) {
+      setError(niceError(e));
+      retake();
+    }
+  };
+
+  // Counts down once a second; calls done() at 0.
+  const countdown = (from: number, done: () => void) => {
+    stopTimer();
+    setCount(from);
+    let left = from;
+    timer.current = setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        stopTimer();
+        setCount(0);
+        done();
+      } else {
+        setCount(left);
+        if (Platform.OS !== 'web' && selfie.mode === 'auto') Haptics.selectionAsync();
+      }
+    }, 1000);
+  };
+
   const shoot = async () => {
     if (!cam.current || step !== 'back') return;
     setError('');
     try {
       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const b = await cam.current.takePictureAsync({ quality: 0.8 });
+      backUri.current = b.uri;
       setBack(b.uri);
       setStep('front');
+      setFrontReady(false);
       const waiting = waitReady();
       setFacing('front');
       await waiting;
       await new Promise((r) => setTimeout(r, 350));
-      const f = await cam.current!.takePictureAsync({ quality: 0.8 });
-      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const [bs, fs] = await Promise.all([shrink(b.uri, 1080), shrink(f.uri, 720)]);
-      setBack(bs);
-      setFront(fs);
-      setStep('review');
+      setFrontReady(true);
+      if (selfie.mode === 'button') {
+        // You press the button yourself, within 20 seconds.
+        countdown(SELFIE_BUTTON_SECONDS, () => {
+          setError("Time's up! Try again.");
+          retake();
+        });
+      } else if (selfie.delay > 0) {
+        countdown(selfie.delay, takeFront);
+      } else await takeFront();
     } catch (e) {
       setError(niceError(e));
       retake();
@@ -90,6 +150,10 @@ export function Camera({
   };
 
   const retake = () => {
+    stopTimer();
+    setCount(null);
+    setFrontReady(false);
+    backUri.current = null;
     setBack(null);
     setFront(null);
     setFacing('back');
@@ -128,7 +192,8 @@ export function Camera({
   const reviewing = step === 'review' || step === 'posting';
   const big = swapped ? front : back;
   const small = swapped ? back : front;
-  const label = step === 'back' ? 'Back camera' : step === 'front' ? 'Now smile' : onTime ? 'On time' : 'Extra snap';
+  const label = step === 'back' ? 'Back camera' : step === 'front' ? (selfie.mode === 'button' ? 'Your turn: selfie!' : 'Now smile') : onTime ? 'On time' : 'Extra snap';
+  const pressSelfie = step === 'front' && selfie.mode === 'button' && frontReady;
 
   return (
     <View style={[styles.black, { paddingBottom: kb }]}>
@@ -171,9 +236,20 @@ export function Camera({
             </Pressable>
           ) : null}
 
-          {step === 'front' && (
+          {step === 'front' && !frontReady && (
             <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
               <ActivityIndicator color="#FFFFFF" size="large" />
+            </View>
+          )}
+          {step === 'front' && frontReady && selfie.mode === 'auto' && count !== null && count > 0 && (
+            <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+              <Text style={styles.bigCount}>{count}</Text>
+            </View>
+          )}
+          {pressSelfie && count !== null && (
+            <View style={[styles.timerPill, count <= 5 && { backgroundColor: '#FF453A' }]} pointerEvents="none">
+              <Icon name="timer-outline" size={18} color="#FFFFFF" />
+              <Text style={[T.titleSmall, T.num, { color: '#FFFFFF' }]}>{count}s</Text>
             </View>
           )}
         </View>
@@ -181,9 +257,20 @@ export function Camera({
         <View style={[styles.bottom, { paddingBottom: kb ? 10 : insets.bottom + 16 }]}>
           {!!error && <Text style={[T.bodyMedium, { color: '#FF8A80', textAlign: 'center' }]}>{error}</Text>}
           {!reviewing ? (
-            <Press onPress={shoot} disabled={step !== 'back'} squish={0.88} morph={24} radius={39} accessibilityLabel="Take snap" style={styles.shutter}>
-              <View style={styles.shutterInner} />
-            </Press>
+            <>
+              <Press
+                onPress={pressSelfie ? takeFront : shoot}
+                disabled={!(step === 'back' || pressSelfie)}
+                squish={0.88}
+                morph={24}
+                radius={39}
+                accessibilityLabel={pressSelfie ? 'Take selfie' : 'Take snap'}
+                style={[styles.shutter, pressSelfie && { borderColor: '#FFD60A' }]}
+              >
+                <View style={[styles.shutterInner, pressSelfie && { backgroundColor: '#FFD60A' }]} />
+              </Press>
+              {pressSelfie && <Text style={[T.bodySmall, { color: 'rgba(235,235,245,0.7)' }]}>Tap to take your selfie</Text>}
+            </>
           ) : (
             <>
               <View style={styles.sendRow}>
@@ -227,6 +314,8 @@ const mk = (c: ReturnType<typeof useTheme>) =>
   bottom: { paddingTop: 14, paddingHorizontal: 16, alignItems: 'center', gap: 12, maxWidth: 560, width: '100%', alignSelf: 'center' },
   shutter: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: c.primaryContainer },
+  bigCount: { fontFamily: 'BricolageGrotesque_800ExtraBold', fontSize: 120, lineHeight: 130, color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 18 },
+  timerPill: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.55)' },
   sendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' },
   caption: { flex: 1, height: 56, borderRadius: 28, paddingHorizontal: 20, backgroundColor: 'rgba(118,118,128,0.28)', color: '#FFFFFF' },
   send: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

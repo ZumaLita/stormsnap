@@ -225,7 +225,7 @@ export function photo(fileId: string) {
 }
 
 // ---------- per-person settings (saved on the account, so every device gets them) ----------
-export type Prefs = { onboarded?: boolean; style?: string; appearance?: string; accent?: string };
+export type Prefs = { onboarded?: boolean; style?: string; appearance?: string; accent?: string; selfieMode?: 'auto' | 'button'; selfieDelay?: number };
 export async function getPrefs(): Promise<Prefs> {
   try {
     return (await account.getPrefs()) as Prefs;

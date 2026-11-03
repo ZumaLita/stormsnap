@@ -15,6 +15,8 @@ import { VT323_400Regular } from '@expo-google-fonts/vt323';
 import { TabBar, type Tab } from './src/components/TabBar';
 import { Viewer } from './src/components/Viewer';
 import { CommentsSheet } from './src/components/Comments';
+import { SelfieSetup } from './src/components/SelfieSetup';
+import type { SelfieMode } from './src/screens/Camera';
 import { Login } from './src/screens/Login';
 import { Home } from './src/screens/Home';
 import { Streaks } from './src/screens/Streaks';
@@ -73,6 +75,9 @@ export default function App() {
   const [kept, setKept] = useState<Snap[]>([]);
   const [streakRows, setStreakRows] = useState<StreakRow[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [selfie, setSelfie] = useState<SelfieMode>({ mode: 'auto', delay: 0 });
+  // Ask everyone once how they want their selfie (also for people who installed before this existed).
+  const [askSelfie, setAskSelfie] = useState(false);
   const [commentsFor, setCommentsFor] = useState<Snap | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [reminders, setReminders] = useState(true);
@@ -137,6 +142,8 @@ export default function App() {
       if (p.appearance === 'auto' || p.appearance === 'light' || p.appearance === 'dark') setAppearance(p.appearance);
       if (p.accent && p.accent in ACCENTS) setAccentKey(p.accent as AccentKey);
       setOnboarded(!!p.onboarded);
+      if (p.selfieMode === 'auto' || p.selfieMode === 'button') setSelfie({ mode: p.selfieMode, delay: Number(p.selfieDelay) || 0 });
+      else setAskSelfie(true);
     });
   }, [me]);
 
@@ -248,6 +255,7 @@ export default function App() {
         me={me}
         onTime={onTime}
         photoStyle={photoStyle}
+        selfie={selfie}
         onClose={() => setCamera(false)}
         onPosted={() => {
           setCamera(false);
@@ -301,6 +309,8 @@ export default function App() {
             setItem('appearance', a);
             savePrefs({ appearance: a });
           }}
+          selfie={selfie}
+          onSelfie={() => setAskSelfie(true)}
           photoStyle={photoStyle}
           onPhotoStyle={(p) => {
             setPhotoStyle(p);
@@ -334,6 +344,17 @@ export default function App() {
         />
       )}
       <TabBar tab={tab} onTab={setTab} onSnap={() => setCamera(true)} />
+      <SelfieSetup
+        key={askSelfie ? 'open' : 'closed'}
+        open={askSelfie}
+        value={selfie}
+        onDone={(sm) => {
+          setSelfie(sm);
+          setAskSelfie(false);
+          setTab('home');
+          savePrefs({ selfieMode: sm.mode, selfieDelay: sm.delay });
+        }}
+      />
       {commentsFor && (
         <CommentsSheet
           me={me}

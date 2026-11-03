@@ -1,3 +1,5 @@
+import { describeSelfie } from '../components/SelfieSetup';
+import type { SelfieMode } from './Camera';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,6 +38,8 @@ export function MeScreen({
   onLogout,
   photoStyle,
   onPhotoStyle,
+  selfie,
+  onSelfie,
 }: {
   me: Me;
   code: string;
@@ -53,6 +57,8 @@ export function MeScreen({
   onLogout: () => void;
   photoStyle: PhotoStyle;
   onPhotoStyle: (p: PhotoStyle) => void;
+  selfie: SelfieMode;
+  onSelfie: () => void;
 }) {
   const c = useTheme();
   const s = useStyles(makeStyles);
@@ -169,6 +175,17 @@ export function MeScreen({
         />
         <ListItem icon="weather-sunset-up" title="From" trailing={<HourStepper value={start} min={5} max={end} onChange={(v) => onWindow(v, end)} />} />
         <ListItem icon="weather-night" title="Until" trailing={<HourStepper value={end} min={start} max={23} onChange={(v) => onWindow(start, v)} />} />
+      </Card>
+
+      <SectionLabel>Selfie</SectionLabel>
+      <Card tone="low">
+        <ListItem
+          icon={selfie.mode === 'button' ? 'gesture-tap-button' : 'timer-outline'}
+          title="How the selfie is taken"
+          supporting={describeSelfie(selfie)}
+          onPress={onSelfie}
+          trailing={<Icon name="chevron-right" size={24} color={c.onSurfaceVariant} />}
+        />
       </Card>
 
       <SectionLabel>Account</SectionLabel>
