@@ -3,13 +3,14 @@
 // - Extra snaps earn a bonus 🛡️: a 2nd snap in the same hour (like 10u and 10u30),
 //   or a snap outside 8u–21u. You can hold up to 3 bonuses.
 // - Forget an hour? A bonus springs in and saves your streak. No bonus left: back to 0.
+// - Storm (admin) can save a missed hour afterwards: it costs one of the bonuses you have now.
 import type { Ionicons } from '@expo/vector-icons';
 
 export const STREAK_START = 8;
 export const STREAK_END = 21;
 export const MAX_BONUS = 3;
 
-export type StreakRow = { authorId: string; day: string; hour: number };
+export type StreakRow = { authorId: string; day: string; hour: number; save?: boolean };
 export type SlotState = 'snap' | 'saved' | 'missed' | 'now' | 'future';
 
 export type StreakStats = {
@@ -40,6 +41,9 @@ export function computeStreak(rows: StreakRow[], now = new Date()): StreakStats 
   const days = new Set<string>();
   let earlyBird = false;
   let nightOwl = false;
+  const saves = new Set(rows.filter((r) => r.save).map((r) => `${r.day}|${r.hour}`));
+  rows = rows.filter((r) => !r.save);
+  let owed = 0;
   rows.forEach((r) => {
     const k = `${r.day}|${r.hour}`;
     counts.set(k, (counts.get(k) ?? 0) + 1);
@@ -106,6 +110,12 @@ export function computeStreak(rows: StreakRow[], now = new Date()): StreakStats 
         usedBonus = true;
         streak++;
         if (isToday) todayMap[h] = 'saved';
+      } else if (saves.has(`${day}|${h}`)) {
+        // Saved afterwards: paid with a bonus earned later.
+        owed++;
+        usedBonus = true;
+        streak++;
+        if (isToday) todayMap[h] = 'saved';
       } else {
         streak = 0;
       }
@@ -117,7 +127,7 @@ export function computeStreak(rows: StreakRow[], now = new Date()): StreakStats 
     for (let h = STREAK_END + 1; h < 24; h++) addBonus(counts.get(`${day}|${h}`) ?? 0);
   }
 
-  return { ...empty, current: streak, best, bonus, usedBonus, maxedBonus, fullDay };
+  return { ...empty, total: rows.length, todaySnaps: rows.filter((r) => r.day === today).length, current: streak, best, bonus: Math.max(0, bonus - owed), usedBonus, maxedBonus, fullDay };
 }
 
 export type Badge = {

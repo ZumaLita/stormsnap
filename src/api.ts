@@ -89,7 +89,7 @@ export const EXPIRED = 'expired';
 
 /** Light rows (no photos) for every snap ever, used for streaks. */
 export async function listStreakRows() {
-  const out: { authorId: string; day: string; hour: number }[] = [];
+  const out: { authorId: string; day: string; hour: number; save?: boolean }[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < 20; page++) {
     const queries = [Query.select(['$id', 'authorId', 'day', 'hour']), Query.orderAsc('$createdAt'), Query.limit(500)];
@@ -100,6 +100,11 @@ export async function listStreakRows() {
     if (rows.length < 500) break;
     cursor = rows[rows.length - 1].$id;
   }
+  // Hours Storm saved afterwards (they cost a bonus).
+  try {
+    const s = await tables.listRows({ databaseId: DB_ID, tableId: 'saves', queries: [Query.limit(500)] });
+    (s.rows as unknown as { authorId: string; day: string; hour: number }[]).forEach((x) => out.push({ authorId: x.authorId, day: x.day, hour: x.hour, save: true }));
+  } catch {}
   return out;
 }
 
